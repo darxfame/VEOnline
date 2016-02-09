@@ -1,0 +1,138 @@
+unit Excom0;
+
+interface
+
+uses
+  WinTypes, WinProcs, SysUtils, Messages, Classes, Graphics, Controls,
+  Forms, Dialogs, StdCtrls, AdPort, OoMisc, ADTrmEmu, AdPacket, CPort, CPortCtl;
+
+type
+TByteArr = array of byte;
+  TForm1 = class(TForm)
+    Test: TButton;
+    Edit1: TEdit;
+    Button1: TButton;
+    Button2: TButton;
+    ComPort: TComPort;
+    Edit2: TEdit;
+    Label1: TLabel;
+    ComLed1: TComLed;
+    CheckBox1: TCheckBox;
+    procedure TestClick(Sender: TObject);
+    procedure Button1Click(Sender: TObject);
+    procedure Button2Click(Sender: TObject);
+    procedure ComPortRxChar(Sender: TObject; Count: Integer);
+    procedure Label1Click(Sender: TObject);
+    procedure FormClose(Sender: TObject; var Action: TCloseAction);
+  private
+    { Private declarations }
+  public
+    { Public declarations }
+  end;
+
+var
+  Form1: TForm1;
+  i:integer;
+implementation
+
+{$R *.DFM}
+
+function AsToAc(arrChars: array of byte) : string;       //Перевод ASCII в ANSI
+ Var
+   i,kod: byte;
+   arrTemp: array of byte;
+ begin
+  SetLength(arrTemp, Length(arrChars));
+  for i:=0 to length(arrChars)-1 do
+  begin
+    kod:=arrChars[i];
+    if (kod=240) then
+      arrTemp[i]:=168;
+    if (kod=241) then
+      arrTemp[i]:=184;
+    if (kod>=128) and (kod<=175) then
+      arrTemp[i]:=kod+64
+    else
+      if (kod>=224) and (kod<=239) then
+        arrTemp[i]:=kod+16
+      else
+        arrTemp[i]:=kod;
+  end;
+  SetString(Result, PAnsiChar(arrTemp), Length(arrTemp));
+ end;
+
+function StrToHex(source: String): String;
+var i:integer;
+c:Char;
+s:String;
+begin
+s := '';
+for i:=1 to Length(source) do
+begin
+  c := source[i];
+  s := s +  IntToHex(Integer(c),2)+' ';
+end;
+result := s;
+end;
+
+function HexToStr(hex: string): string;
+var
+  i: Integer;
+begin
+  hex:= StringReplace(hex, ' ', '', [rfReplaceAll]);
+  for i:= 1 to Length(hex) div 2 do
+    Result:= Result + Char(StrToInt('$' + Copy(hex, (i-1) * 2 + 1, 2)));
+end;
+
+procedure TForm1.Button1Click(Sender: TObject);
+begin
+  if ComPort.Connected then
+    ComPort.Close
+end;
+
+procedure TForm1.Button2Click(Sender: TObject);
+var snt:string;
+begin
+snt:='!'+edit2.text +#13#10;
+if checkbox1.Checked then  snt:='!'+hextostr(edit2.text) +#13#10;
+ComPort.WriteStr(Snt);
+end;
+
+function StrOemToAnsi(const aStr : AnsiString) : AnsiString;
+var
+  Len : Integer;
+begin
+  Len := Length(aStr);
+  SetLength(Result, Len);
+  OemToCharBuffA(PAnsiChar(aStr), PAnsiChar(Result), Len);
+end;
+
+procedure TForm1.ComPortRxChar(Sender: TObject; Count: Integer);
+var
+  Str: String;
+begin
+  ComPort.ReadStr(Str, Count);
+  edit1.Text := StrOemToAnsi(str);//strtohex(Str);
+  form1.Label1Click(Sender);
+end;
+
+procedure TForm1.FormClose(Sender: TObject; var Action: TCloseAction);
+begin
+  ComPort.Close;
+end;
+
+procedure TForm1.Label1Click(Sender: TObject);
+begin
+label1.Caption:='Bites '+inttostr((length(StringReplace(edit1.text, ' ', '',[rfReplaceAll, rfIgnoreCase]))div 2))
+end;
+
+procedure TForm1.TestClick(Sender: TObject);
+begin
+  if not ComPort.Connected then
+    ComPort.Open;
+end;
+
+
+
+
+end.

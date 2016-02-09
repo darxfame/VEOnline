@@ -250,6 +250,7 @@ object Form1: TForm1
     Height = 21
     ComPort = ComPort
     ComProperty = cpBaudRate
+    AutoApply = True
     Text = '57600'
     Style = csDropDownList
     ItemIndex = 12
@@ -262,9 +263,9 @@ object Form1: TForm1
     Height = 21
     ComPort = ComPort
     ComProperty = cpPort
-    Text = 'COM11'
+    AutoApply = True
     Style = csDropDownList
-    ItemIndex = 1
+    ItemIndex = -1
     TabOrder = 7
   end
   object MainMenu1: TMainMenu

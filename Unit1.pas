@@ -118,6 +118,7 @@ Var
   data: array of array of real;
   databuf: array[0..16,0..16] of string;    //Буфер для показа изменений
   stsum:array [0..15,0..15] of real; //Суммы изменений после пересчета
+  ve_loaded:array[1..16] of boolean;
 
 {$R *.dfm}
 
@@ -413,7 +414,7 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.Button2Click(Sender: TObject);     //Открыть Порт
+procedure TForm1.Button2Click(Sender: TObject);      //Открыть Порт
 begin
 Button3.Enabled:=true;
 N3DPlot1.Enabled:=true;
@@ -421,8 +422,13 @@ N3DPlot2.Enabled:=true;
 N10.Enabled:=true;
 //TabClear(1,1,2);   //очистка окна
 if not ComPort.Connected then begin
+try
     ComPort.Open;
     form1.ComPort.WriteStr('!h{'+#13#10);
+except
+on E : Exception do
+      ShowMessage(E.Message+' '+form1.ComPort.Port);
+end;
      end
     else
     ShowMessage('Secu-3t недоступен');
@@ -459,11 +465,7 @@ i,j,r:integer;
 begin
 Sl := TStringList.Create;
 Sl.Delimiter := ' '; // <-- разделитель
-if (scan(strtohex(str),'40 7B 05')<>0)then begin
-   // if (scan(strtohex(str),'0A 82')<>0) then begin
-       str:=strtohex(str);
-       str:=StringReplace(str, '0A 82', '40',[rfReplaceAll, rfIgnoreCase]);
-
+if (scan(str,'40 7B 05')<>0)then begin
 /////////////// Парсинг
 sdl:= str;
 Delete(sdl, 1, 9);   //Удаляем начальные биты
@@ -475,11 +477,9 @@ Sl.DelimitedText := sdl; // <-- строка
    for i:= 1 to form1.stringGrid2.Rowcount-1 do begin
     form1.stringGrid2.Cells[r,i]:=FormatFloat('0.##', strtoint('$'+Sl[i-1])/128);
 end;
+ve_loaded[r]:=true;
 Sl.Free;
-   ///
-      //end else
-      // form1.Memo1.Lines.Add(strtohex(str));
-if scan(str,'40 7B 05 F0')<>0 then form1.ComPort.WriteStr('!hq'+#13#10);
+if (scan(str,'40 7B 05 F0')<>0) and (ve_loaded[1]=true) then form1.ComPort.WriteStr('!hq'+#13#10);
 end;
 end;
 (******************************************************************************)
@@ -490,9 +490,7 @@ i,r:integer;
 begin
 Sl := TStringList.Create;
 Sl.Delimiter := ' '; // <-- разделитель
-if (scan(strtohex(str),'40 71')<>0)then begin
-       str:=strtohex(str);
-       str:=StringReplace(str, '0A 82', '40',[rfReplaceAll, rfIgnoreCase]);
+if (scan(str,'40 71')<>0)then begin
 /////////////// Парсинг
 sdl:= str;
 Delete(sdl, 1, 6);   //Удаляем начальные биты
@@ -500,11 +498,9 @@ r:=16-strtoint('$'+Copy(sdl, 1, 1)); //Вычисляем расход
 Delete(sdl, 165, 3);   //Удаляем биты конца строки
 Sl.DelimitedText := sdl; // <-- строка
    ////////////////////   Заполнение
-   //form1.Memo1.Lines.Add(sl[48]+sl[49]);
    i:=strtoint('$'+sl[46]+sl[47]);
    if strtoint('$'+sl[12])<>0 then
    form1.Memo1.Lines.Add(floattostr((i/512)*100));
-   // form1.stringGrid2.Cells[r,i]:=FormatFloat('0.##', strtoint('$'+Sl[i-1])/128);
 Sl.Free;
    ///
 end;
@@ -516,6 +512,11 @@ var
   Str: String;
 begin
   ComPort.ReadStr(Str, Count);
+  str:=strtohex(str);
+  str:=StringReplace(str, '0A 81', '21',[rfReplaceAll, rfIgnoreCase]);
+  str:=StringReplace(str, '0A 82', '40',[rfReplaceAll, rfIgnoreCase]);
+  str:=StringReplace(str, '0A 83', '0D',[rfReplaceAll, rfIgnoreCase]);
+  str:=StringReplace(str, '0A 84', '0A',[rfReplaceAll, rfIgnoreCase]);
   load_ve(str);
   stringgrid2.Enabled:=true;
   lambda_obr(str);
