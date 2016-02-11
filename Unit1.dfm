@@ -5,7 +5,7 @@ object Form1: TForm1
   BorderStyle = bsSingle
   Caption = 'VEOnline'
   ClientHeight = 530
-  ClientWidth = 1012
+  ClientWidth = 1018
   Color = clBtnFace
   Constraints.MinHeight = 530
   Constraints.MinWidth = 888
@@ -371,5 +371,12 @@ object Form1: TForm1
     TriggersOnRxChar = False
     Left = 1152
     Top = 64
+  end
+  object Timer1: TTimer
+    Enabled = False
+    Interval = 10000
+    OnTimer = Timer1Timer
+    Left = 1152
+    Top = 120
   end
 end

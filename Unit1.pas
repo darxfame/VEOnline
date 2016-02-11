@@ -48,6 +48,7 @@ type
     Button6: TButton;
     Label5: TLabel;
     Label6: TLabel;
+    Timer1: TTimer;
     procedure FormCreate(Sender: TObject);
     procedure N10Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -74,6 +75,7 @@ type
    // procedure ComPortRxChar(Sender: TObject; Count: Integer);
     procedure ComDataPacket1Packet(Sender: TObject; const Str: string);
     procedure Button6Click(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
 
   private
     { Private declarations }
@@ -105,7 +107,7 @@ var
   rash:array of array of real;
   rc:integer;
   gEditCol : Integer = -1;
-  fname,frname,status_line:string;
+  fname,frname,statusline:string;
     r: integer;  //hint
     c: integer;
     nvhod: array[0..16,0..16] of integer;
@@ -132,10 +134,10 @@ Var
   hexname:string;   //Имя прошивки
   loglen:integer;
   data: array of array of real;
-  databuf: array[0..16,0..16] of string;    //Буфер для показа изменений
+  databuf: array[0..16,0..16] of real;    //Буфер для показа изменений
   stsum:array [0..15,0..15] of real; //Суммы изменений после пересчета
   ve_loaded:array[1..16] of boolean; //проверка загрузки таблиц
-  starttune:boolean; //Проверка запуска пересчета
+  starttune,obrab:boolean; //Проверка запуска пересчета
 
 {$R *.dfm}
 
@@ -240,7 +242,7 @@ begin
 //Читаем значение флага, которое записано под видом указателя на объект.
   Flag := Integer(StringGrid2.Rows[ARow].Objects[ACol]);
   //Если флаг не равен
-  if (Flag <> 1) and (Flag <> 2) and (Flag <> 4) and (Flag <> 5)then Exit;
+  if (Flag > 1) and (Flag < 5)then Exit;
 with StringGrid2 do
   begin
   if (ACol>0) and(ARow>0) then begin
@@ -249,6 +251,7 @@ if not (edit1.Text = Cells[ACol, ARow])then begin
 Canvas.Brush.Color:=clYellow;
 end;
 if (Flag = 2) then begin Canvas.Brush.Color:=cllime; end;
+if (Flag = 3) then begin Canvas.Brush.Color:=clteal; end;
 if (Flag = 4) then begin Canvas.Brush.Color:=claqua; end;
 if (Flag = 5) then begin Canvas.Brush.Color:=clred; end;
    except
@@ -332,7 +335,6 @@ end
 else
     ShowMessage('Secu-3t недоступен');
 end;
-
 (******************************************************************************)
 procedure TForm1.VEtxt1Click(Sender: TObject);
 var f1:textfile; i,k: Integer; fname:string;
@@ -503,8 +505,10 @@ end;
 
 procedure TForm1.Button3Click(Sender: TObject);     //Закрыть порт
 begin
-  if ComPort.Connected then
-    ComPort.Close
+  if ComPort.Connected then begin
+  starttune:=false;
+    ComPort.Close;
+  end
     else
     ShowMessage('Secu-3t уже отключен');
 end;
@@ -580,6 +584,7 @@ end;
 procedure lambda_obr(str:string);
 var Sl: TStringList;
 sdl:string;
+l,ob,obt,r:integer;
 begin
 sdl:='';
 Sl := TStringList.Create;
@@ -591,61 +596,83 @@ sdl:= str;
 Delete(sdl, 1, 6);   //Удаляем начальные биты
 Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
 Sl.DelimitedText := sdl; // <-- строка
-//r:=strtoint('$'+sl[14]); //Вычисляем расход
- status_line:=sdl;
+r:=strtoint('$'+sl[14]); //Вычисляем расход
+ob:=strtoint('$'+sl[0]+sl[1]); //обороты
+obt:=ProcessRangeValue(ob);
+ statusline:=sdl;
+ if obt=15 then obt:=0;
+      form1.StringGrid2.Selection := TGridRect(rect(r, obt+1, r, obt+1));
+      form1.StringGrid2.Rows[obt+1].Objects[r]:=TObject(3);
+     MyThread:=TMyThread.Create(False);
+     MyThread.Priority:=tpNormal;
     end;
-  ///
- MyThread:=TMyThread.Create(False);
- MyThread.Priority:=tpNormal;
-
 Sl.Free;
 end;
 ////////////////////////////////
 
 procedure TMyThread.Execute;
 var sl,s1:TStringList;
-sdl,l1:string;
-snt,rs,he:string;
 l,ob,obt,r:integer;
-poi,lf:real;
+lf,data:real;
 begin
 Sl := TStringList.Create;
 Sl.Delimiter := ' '; // <-- разделитель
-Sl.DelimitedText := status_line; // <-- строка
+Sl.DelimitedText:=statusline; // <-- строка
 r:=strtoint('$'+sl[14]); //Вычисляем расход
    ////////////////////   Заполнение
    l:=smallint(StrToInt('$'+sl[46]+sl[47]));
-  //l:=smallint($FFC8);
-   lf:=l/ 512.0;
+   //l:=smallint($FFC8);   r:=1;
+   lf:=l/512.0;
    ob:=strtoint('$'+sl[0]+sl[1]); //обороты
    obt:=ProcessRangeValue(ob);
    if obt=15 then obt:=0;
+   if not form1.timer1.Enabled then form1.timer1.Enabled:=true;
    if obt<>0 then begin  //Проверка на наличие оборотов
-   form1.StringGrid2.Selection := TGridRect(rect(r, obt+1, r, obt+1));
    form1.Label5.Caption:='Обороты: '+inttostr(ob);
    form1.Label6.Caption:='Коррекция: '+FormatFloat('0.##', lf* 100)+'% ';
   /// Обработки
-if abs(lf*100)>2 then
+  if not obrab then
+if abs(lf*100)>5 then
    if form1.StringGrid2.Rows[obt+1].Objects[r]<>TObject(4) then
     begin
-poi:=strtofloat(form1.stringGrid2.Cells[r,obt+1])+lf/4;
-if not (poi>0) or not (poi<2) then begin
-MessageDlg('Ошибка, выход за границы диапазона',mtError, mbOKCancel, 0); starttune:=false;  end
-else begin
-form1.stringGrid2.Cells[r,obt+1]:=FormatFloat('0.##', poi);
-form1.StringGrid2.Rows[obt+1].Objects[r] := TObject(2);
+      databuf[r,obt+1]:=databuf[r,obt+1]+lf;
+      nvhod[r,obt+1]:=nvhod[r,obt+1]+1;
+end;
+end;
+Sl.Free;
+MyThread.Terminate;
+end;
+
+(******************************************************************************)
+
+procedure TForm1.Timer1Timer(Sender: TObject);
+var sdl,l1:string;
+snt,rs,he:string;
+l,ob,obt,r:integer;
+poi,lf:real;
+  i: Integer;
+  j: Integer;
+begin
+for i := 1 to 16 do
+for j := 1 to 16 do
+if nvhod[i,j]>150 then  begin
+obrab:=true;
+poi:=databuf[i,j]/nvhod[i,j];
+poi:=poi+strtofloat(form1.stringGrid2.Cells[i,j]);
+form1.stringGrid2.Cells[i,j]:=FormatFloat('0.##', poi);
+form1.StringGrid2.Rows[j].Objects[i] := TObject(2);
 he:=he+inttohex(trunc(poi*128),2);
-rs:=inttohex(17-r-1,1)+inttohex(obt+1-1,1);    //rs:='f'+inttohex(i-1,1);
+rs:=inttohex(17-i-1,1)+inttohex(j-1,1);    //rs:='f'+inttohex(i-1,1);
 snt:= '217B05'+rs+he+'0D';  //snt:='!{'+'05'+rs+#13#10;
 snt:=hextostr(snt);
-sleep(3000);
 form1.ComPort.WriteStr(snt);
-Sl.Free;
- MyThread.Terminate;
+databuf[i,j]:=0;
+nvhod[i,j]:=0;
+obrab:=false;
 end;
+
 end;
-end;
-end;
+
 
 (******************************************************************************)
 
@@ -785,61 +812,6 @@ form2.show;
 end;
 
 (******************************************************************************)
-procedure smlst(arh:Pointer;n:integer;k:integer);    //Пересчет значений в STRGRD2
-var i,cs,Flag:integer;
-n1:array [0..15] of integer;
-ranges: array of array of Integer;
- s1:array [0..15] of real;
- sr1:array [0..15] of real;
-  arr: array of array of real;
-  znac:string;
-  zn:real;
-  MyComponent,MyComponent1: TComponent;
-  d:integer;
-
-begin
-Pointer(arr) := arh;
-for i:=0 to 15 do  begin
-  n1[i]:=0;
-  s1[i]:=0;
-  sr1[i]:=0;
-end;
-                                                                          //
-
-/// Выбираем поле куда вставлять значения
-for i:= 2 to form1.stringGrid2.Rowcount do begin
-Flag := Integer(form1.StringGrid2.Rows[i-1].Objects[k]);
-if not (sr1[i-2]=0) and (Flag<>4) then begin
-//array[столбец,строка]
-  zn:=strtofloat(form1.stringGrid2.Cells[k,i-1])+sr1[i-2];
-  znac:=floattostrf(zn,fffixed,3,2);
-     if (zn<0) or (zn>2)then begin
-        MessageDlg('Ошибка, выход за границы диапазона',mtError, mbOKCancel, 0);
-           //Cells[i, j] := st;      //Оставлять старое значение
-          form1.StringGrid2.Cells[k,i-1] := '0.00';         //Менять на 0
-          form1.StringGrid2.Rows[i-1].Objects[k] := TObject(5);
-         end
-    else
-     if not (form1.stringGrid2.Cells[k,i-1]=znac) then
-    begin
-        nvhod[k,i-2]:=n1[i-2];
-       if not (Flag=4) then stsum[k,i-2]:=sr1[i-2];
-      form1.StringGrid2.Rows[i-1].Objects[k] := TObject(2);
-      form1.stringGrid2.Cells[k,i-1]:=znac;
-    end;
-end;
-end;
-
-znac:='';
-arr:=nil;
-for i:=0 to 15 do  begin
-  n1[i]:=0;
-  s1[i]:=0;
-  sr1[i]:=0;
-end;
-end;
-
-(******************************************************************************)
 
 procedure TForm1.N10Click(Sender: TObject);   //Запуск пересчета значений
 var buttonSelected:integer;
@@ -851,15 +823,16 @@ buttonSelected:= MessageDlg('Запустить Online редактирование?',mtInformation, [m
      N3DPlot1.Enabled:=true;
      N3DPlot2.Enabled:=true;
      N10.caption:='Стоп';
+     obrab:=false;
      if not starttune then starttune:=true;
    end
    else
        begin
      form1.StringGrid2.Enabled:=true;
       starttune:=false;
+      if timer1.Enabled then timer1.Enabled:=false;
       N10.caption:='Запуск';
        end;
-
 
 end;
 (******************************************************************************)
