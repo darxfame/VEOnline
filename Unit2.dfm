@@ -3,8 +3,8 @@ object Form2: TForm2
   Top = 0
   BorderStyle = bsSingle
   Caption = #1053#1072#1089#1090#1088#1086#1081#1082#1080
-  ClientHeight = 334
-  ClientWidth = 267
+  ClientHeight = 135
+  ClientWidth = 264
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -18,7 +18,7 @@ object Form2: TForm2
   TextHeight = 13
   object Button1: TButton
     Left = 62
-    Top = 302
+    Top = 102
     Width = 129
     Height = 25
     Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100' '#1085#1072#1089#1090#1088#1086#1081#1082#1080
@@ -29,95 +29,73 @@ object Form2: TForm2
     Left = 16
     Top = 8
     Width = 233
-    Height = 89
+    Height = 65
     TabOrder = 1
     object Label1: TLabel
-      Left = 72
+      Left = 62
       Top = 8
-      Width = 95
+      Width = 113
       Height = 13
-      Caption = #1055#1091#1090#1100' '#1082' Log '#1092#1072#1081#1083#1072#1084
+      Caption = #1053#1072#1089#1090#1088#1086#1081#1082#1072' COM '#1087#1086#1088#1090#1072
     end
-    object Button2: TButton
-      Left = 72
-      Top = 54
-      Width = 75
-      Height = 25
-      Caption = #1059#1082#1072#1079#1072#1090#1100
-      TabOrder = 0
-      OnClick = Button2Click
-    end
-    object Edit1: TEdit
-      Left = 8
-      Top = 27
-      Width = 217
+    object ComComboBox2: TComComboBox
+      Left = 127
+      Top = 35
+      Width = 60
       Height = 21
+      ComPort = ComPort1
+      ComProperty = cpBaudRate
+      AutoApply = True
+      Text = '57600'
+      Style = csDropDownList
+      ItemIndex = 12
+      TabOrder = 0
+    end
+    object ComComboBox1: TComComboBox
+      Left = 24
+      Top = 35
+      Width = 58
+      Height = 21
+      ComPort = ComPort1
+      ComProperty = cpPort
+      AutoApply = True
+      Text = 'COM29'
+      Style = csDropDownList
+      ItemIndex = 1
       TabOrder = 1
     end
   end
-  object Panel2: TPanel
-    Left = 16
-    Top = 103
-    Width = 233
-    Height = 89
+  object CheckBox1: TCheckBox
+    Left = 24
+    Top = 79
+    Width = 209
+    Height = 17
+    Caption = #1057#1086#1093#1088#1072#1085#1103#1090#1100' '#1092#1080#1082#1089#1080#1088#1086#1074#1072#1085#1085#1099#1077' '#1090#1086#1095#1082#1080
     TabOrder = 2
-    object Label2: TLabel
-      Left = 56
-      Top = 8
-      Width = 119
-      Height = 13
-      Caption = #1055#1091#1090#1100' '#1082' EEPROM '#1092#1072#1081#1083#1072#1084
-    end
-    object Button3: TButton
-      Left = 72
-      Top = 54
-      Width = 75
-      Height = 25
-      Caption = #1059#1082#1072#1079#1072#1090#1100
-      TabOrder = 0
-      OnClick = Button3Click
-    end
-    object Edit2: TEdit
-      Left = 8
-      Top = 27
-      Width = 217
-      Height = 21
-      TabOrder = 1
-    end
-  end
-  object Panel3: TPanel
-    Left = 16
-    Top = 199
-    Width = 233
-    Height = 89
-    TabOrder = 3
-    object Label3: TLabel
-      Left = 56
-      Top = 8
-      Width = 131
-      Height = 13
-      Caption = #1055#1091#1090#1100' '#1089#1086#1093#1088#1072#1085#1077#1085#1080#1103' EEPROM'
-    end
-    object Button4: TButton
-      Left = 72
-      Top = 54
-      Width = 75
-      Height = 25
-      Caption = #1059#1082#1072#1079#1072#1090#1100
-      TabOrder = 0
-      OnClick = Button4Click
-    end
-    object Edit3: TEdit
-      Left = 8
-      Top = 27
-      Width = 217
-      Height = 21
-      TabOrder = 1
-    end
   end
   object DirDialog1: TDirDialog
     NewFolder = True
-    Left = 232
-    Top = 384
+    Left = 312
+    Top = 16
+  end
+  object ComPort1: TComPort
+    BaudRate = br57600
+    Port = 'COM11'
+    Parity.Bits = prNone
+    StopBits = sbOneStopBit
+    DataBits = dbEight
+    Events = [evRxChar, evTxEmpty, evRxFlag, evRing, evBreak, evCTS, evDSR, evError, evRLSD, evRx80Full]
+    Buffer.InputSize = 8192
+    Buffer.OutputSize = 8192
+    FlowControl.OutCTSFlow = False
+    FlowControl.OutDSRFlow = False
+    FlowControl.ControlDTR = dtrEnable
+    FlowControl.ControlRTS = rtsDisable
+    FlowControl.XonXoffOut = False
+    FlowControl.XonXoffIn = False
+    StoredProps = [spBasic]
+    TriggersOnRxChar = False
+    Left = 272
+    Top = 16
   end
 end

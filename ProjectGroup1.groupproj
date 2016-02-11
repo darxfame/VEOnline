@@ -1,12 +1,12 @@
 ﻿	<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 		<PropertyGroup>
-			<ProjectGuid>{56926BFA-131C-4C0A-B6F9-1BA5E184F17B}</ProjectGuid>
+			<ProjectGuid>{7D728984-109A-47AB-89B3-9554B91498E1}</ProjectGuid>
 		</PropertyGroup>
 		<ItemGroup>
 			<Projects Include="VEOnline.dproj">
 				<Dependencies/>
 			</Projects>
-			<Projects Include="..\xcom\ExCom.dproj">
+			<Projects Include="..\xcom for get packet\ExCom.dproj">
 				<Dependencies/>
 			</Projects>
 		</ItemGroup>
@@ -27,13 +27,13 @@
 			<MSBuild Projects="VEOnline.dproj" Targets="Make"/>
 		</Target>
 		<Target Name="ExCom">
-			<MSBuild Projects="..\xcom\ExCom.dproj"/>
+			<MSBuild Projects="..\xcom for get packet\ExCom.dproj"/>
 		</Target>
 		<Target Name="ExCom:Clean">
-			<MSBuild Projects="..\xcom\ExCom.dproj" Targets="Clean"/>
+			<MSBuild Projects="..\xcom for get packet\ExCom.dproj" Targets="Clean"/>
 		</Target>
 		<Target Name="ExCom:Make">
-			<MSBuild Projects="..\xcom\ExCom.dproj" Targets="Make"/>
+			<MSBuild Projects="..\xcom for get packet\ExCom.dproj" Targets="Make"/>
 		</Target>
 		<Target Name="Build">
 			<CallTarget Targets="VEOnline;ExCom"/>

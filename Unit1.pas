@@ -20,7 +20,6 @@ type
     Help1: TMenuItem;
     N9: TMenuItem;
     Log1: TMenuItem;
-    EEPROM1: TMenuItem;
     N11: TMenuItem;
     N12: TMenuItem;
     VEtxt1: TMenuItem;
@@ -39,12 +38,16 @@ type
     N3DPlot2: TButton;
     BitBtn1: TBitBtn;
     Button4: TButton;
-    ComPort: TComPort;
     ComLed1: TComLed;
-    Memo1: TMemo;
-    ComComboBox2: TComComboBox;
-    ComComboBox1: TComComboBox;
     Label3: TLabel;
+    ComDataPacket1: TComDataPacket;
+    ComPort: TComPort;
+    Panel4: TPanel;
+    Button5: TButton;
+    Label4: TLabel;
+    Button6: TButton;
+    Label5: TLabel;
+    Label6: TLabel;
     procedure FormCreate(Sender: TObject);
     procedure N10Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -68,7 +71,9 @@ type
     procedure StringGrid2SelectCell(Sender: TObject; ACol, ARow: Integer;
       var CanSelect: Boolean);
     procedure EEPROM1Click(Sender: TObject);
-    procedure ComPortRxChar(Sender: TObject; Count: Integer);
+   // procedure ComPortRxChar(Sender: TObject; Count: Integer);
+    procedure ComDataPacket1Packet(Sender: TObject; const Str: string);
+    procedure Button6Click(Sender: TObject);
 
   private
     { Private declarations }
@@ -84,19 +89,28 @@ type
     FontStyle : TFontStyles;
     BrColor : TColor;
   end;
+  TMyThread = class(TThread)
+    private
+    { Private declarations }
+  protected
+    procedure Execute; override;
+  end;
 
 var
   Form1: TForm1;
+  MyThread: TMyThread;
   List:TStringList;
   Lst:TStringList;
   ar: array of array of string;
   rash:array of array of real;
   rc:integer;
   gEditCol : Integer = -1;
-  fname,frname:string;
+  fname,frname,status_line:string;
     r: integer;  //hint
     c: integer;
     nvhod: array[0..16,0..16] of integer;
+    ranges: array of array of Integer;
+    MyComponent,MyComponent1: TComponent;
 implementation
 
 uses Unit3, Unit4;
@@ -110,6 +124,8 @@ nc=7; mc=2; // константы для вывода оцифровки осей
   NAMEE_SZ = 342;
   VE_SZ=646;
   VEE_SZ=902;
+  RANGE_LEFT = 0;
+  RANGE_RIGTH = 1;
 Var
   eeprom:string;       //Буфер для записи в *.bin
   buf: array [0..BUF_SZ-1] of byte; // буфер чтения
@@ -118,9 +134,38 @@ Var
   data: array of array of real;
   databuf: array[0..16,0..16] of string;    //Буфер для показа изменений
   stsum:array [0..15,0..15] of real; //Суммы изменений после пересчета
-  ve_loaded:array[1..16] of boolean;
+  ve_loaded:array[1..16] of boolean; //проверка загрузки таблиц
+  starttune:boolean; //Проверка запуска пересчета
 
 {$R *.dfm}
+
+procedure SetRangeValue(Number: Integer; EditLeft, EditRigth: TEdit);
+  begin
+    // заполняем диапозон
+    if number=15 then begin
+    ranges[Number - 1][RANGE_LEFT] := StrToIntDef(EditLeft.Text, 0);
+    ranges[Number - 1][RANGE_RIGTH] := StrToIntDef('9000', 0);
+    end
+    else begin
+    ranges[Number - 1][RANGE_LEFT] := StrToIntDef(EditLeft.Text, 0);
+    ranges[Number - 1][RANGE_RIGTH] := StrToIntDef(EditRigth.Text, 0)-1;
+    end;
+  end;
+
+   function ProcessRangeValue(AValue: Integer):integer;
+  var
+    I: Integer;
+  begin
+    // ищем по диапозону и сохраняем результат
+    for I := 0 to Length(ranges) - 1 do
+    begin
+      if (AValue >= ranges[I][RANGE_LEFT]) and (AValue <= ranges[I][RANGE_RIGTH]) then
+      begin
+         result:=i;
+        Break;
+      end;
+    end;
+  end;
 
 function StrToHex(source: String): String;
 var i:integer;
@@ -292,7 +337,6 @@ end;
 procedure TForm1.VEtxt1Click(Sender: TObject);
 var f1:textfile; i,k: Integer; fname:string;
 begin
-  saveDialog2.InitialDir := form2.Edit2.Text;
 
 // Разрешаем сохранять файлы типа .txt и .doc
   saveDialog2.Filter := 'VE Text|*.txt|';
@@ -415,23 +459,45 @@ end;
 (******************************************************************************)
 
 procedure TForm1.Button2Click(Sender: TObject);      //Открыть Порт
+var i,d:integer;
 begin
+// готовим диапозон
+  SetLength(ranges, 16);
+  for I := 0 to 15 do
+  begin
+    SetLength(ranges[I], 2);
+  end;
+  //Заполняем
+  for d:=2 to 16 do
+  begin
+   MyComponent := Form4.FindComponent('Edit'+IntToStr(d-1));
+   MyComponent1 := Form4.FindComponent('Edit'+IntToStr(d));
+   if MyComponent <> nil then if d=16 then begin
+   SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
+   SetRangeValue(15, TEdit(MyComponent1), TEdit(MyComponent1));
+   end else  SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
+  end;
+
 Button3.Enabled:=true;
 N3DPlot1.Enabled:=true;
 N3DPlot2.Enabled:=true;
 N10.Enabled:=true;
-//TabClear(1,1,2);   //очистка окна
+ComDataPacket1.StartString:=hextostr('40');
+ComDataPacket1.StopString:=hextostr('0D');
+ComPort.Port:=form2.Comcombobox1.Text;
+ComPort.BaudRate:=strtobaudrate(form2.Comcombobox2.Text);
 if not ComPort.Connected then begin
 try
     ComPort.Open;
-    form1.ComPort.WriteStr('!h{'+#13#10);
+   if ComPort.Connected then form1.ComPort.WriteStr('!h{'+#13#10) else
+   ShowMessage('Не удалось подключиться к Secu-3T');
 except
 on E : Exception do
       ShowMessage(E.Message+' '+form1.ComPort.Port);
 end;
      end
     else
-    ShowMessage('Secu-3t недоступен');
+    ShowMessage('Secu-3T недоступен');
 end;
 (******************************************************************************)
 
@@ -451,8 +517,30 @@ with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
    StringGrid2.Refresh;
 end;
 
-(******************************************************************************)
+procedure TForm1.Button6Click(Sender: TObject);                //SaveFixed
+var fixed:string;
+i,j,flag:integer;
+begin
+if form2.CheckBox1.Checked then begin
+fixed:='';
+     /// Выбираем Точки с флагом 4
+for i:= 1 to form1.stringGrid2.Rowcount-1 do begin
+for j:= 1 to form1.stringGrid2.Colcount-1 do begin
+Flag := Integer(form1.StringGrid2.Rows[i].Objects[j]);
+if (Flag=4) then begin
+        fixed:=fixed+inttostr(i)+':'+inttostr(j)+' ';
+         end
+end;
+end;
+with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
+  begin
+    WriteString('POINTS', 'FIXED', fixed);
+    Free;
+  end;
+end;
+end;
 
+(******************************************************************************)
 function scan(const str:string;scstr:string):integer;
 begin
 result := AnsiPos(scstr, str);
@@ -462,6 +550,7 @@ procedure load_ve(str:string);   //Загрузка VE
 var Sl: TStringList;
 sdl:string;
 i,j,r:integer;
+point:real;
 begin
 Sl := TStringList.Create;
 Sl.Delimiter := ' '; // <-- разделитель
@@ -475,7 +564,11 @@ Delete(sdl, 48, 3);   //Удаляем биты конца строки
 Sl.DelimitedText := sdl; // <-- строка
    ////////////////////   Заполнение
    for i:= 1 to form1.stringGrid2.Rowcount-1 do begin
-    form1.stringGrid2.Cells[r,i]:=FormatFloat('0.##', strtoint('$'+Sl[i-1])/128);
+    point:=strtoint('$'+Sl[i-1])/128;
+    form1.stringGrid2.Cells[r,i]:=FormatFloat('0.##', point);
+    if point<>strtofloat(form1.edit1.text) then
+    if form1.StringGrid2.Rows[i].Objects[r]<>TObject(4) then
+    form1.StringGrid2.Rows[i].Objects[r] := TObject(1); //1-желтый,2-зеленый,4-голубой(запрет),5-красный(ошибка)
 end;
 ve_loaded[r]:=true;
 Sl.Free;
@@ -483,57 +576,104 @@ if (scan(str,'40 7B 05 F0')<>0) and (ve_loaded[1]=true) then form1.ComPort.Write
 end;
 end;
 (******************************************************************************)
+
 procedure lambda_obr(str:string);
 var Sl: TStringList;
 sdl:string;
-i,r:integer;
 begin
+sdl:='';
 Sl := TStringList.Create;
 Sl.Delimiter := ' '; // <-- разделитель
 if (scan(str,'40 71')<>0)then begin
+form1.StringGrid2.Enabled:=false;
 /////////////// Парсинг
 sdl:= str;
 Delete(sdl, 1, 6);   //Удаляем начальные биты
-r:=16-strtoint('$'+Copy(sdl, 1, 1)); //Вычисляем расход
-Delete(sdl, 165, 3);   //Удаляем биты конца строки
+Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
 Sl.DelimitedText := sdl; // <-- строка
-   ////////////////////   Заполнение
-   i:=strtoint('$'+sl[46]+sl[47]);
-   if strtoint('$'+sl[12])<>0 then
-   form1.Memo1.Lines.Add(floattostr((i/512)*100));
+//r:=strtoint('$'+sl[14]); //Вычисляем расход
+ status_line:=sdl;
+    end;
+  ///
+ MyThread:=TMyThread.Create(False);
+ MyThread.Priority:=tpNormal;
+
 Sl.Free;
-   ///
+end;
+////////////////////////////////
+
+procedure TMyThread.Execute;
+var sl,s1:TStringList;
+sdl,l1:string;
+snt,rs,he:string;
+l,ob,obt,r:integer;
+poi,lf:real;
+begin
+Sl := TStringList.Create;
+Sl.Delimiter := ' '; // <-- разделитель
+Sl.DelimitedText := status_line; // <-- строка
+r:=strtoint('$'+sl[14]); //Вычисляем расход
+   ////////////////////   Заполнение
+   l:=smallint(StrToInt('$'+sl[46]+sl[47]));
+  //l:=smallint($FFC8);
+   lf:=l/ 512.0;
+   ob:=strtoint('$'+sl[0]+sl[1]); //обороты
+   obt:=ProcessRangeValue(ob);
+   if obt=15 then obt:=0;
+   if obt<>0 then begin  //Проверка на наличие оборотов
+   form1.StringGrid2.Selection := TGridRect(rect(r, obt+1, r, obt+1));
+   form1.Label5.Caption:='Обороты: '+inttostr(ob);
+   form1.Label6.Caption:='Коррекция: '+FormatFloat('0.##', lf* 100)+'% ';
+  /// Обработки
+if abs(lf*100)>2 then
+   if form1.StringGrid2.Rows[obt+1].Objects[r]<>TObject(4) then
+    begin
+poi:=strtofloat(form1.stringGrid2.Cells[r,obt+1])+lf/4;
+if not (poi>0) or not (poi<2) then begin
+MessageDlg('Ошибка, выход за границы диапазона',mtError, mbOKCancel, 0); starttune:=false;  end
+else begin
+form1.stringGrid2.Cells[r,obt+1]:=FormatFloat('0.##', poi);
+form1.StringGrid2.Rows[obt+1].Objects[r] := TObject(2);
+he:=he+inttohex(trunc(poi*128),2);
+rs:=inttohex(17-r-1,1)+inttohex(obt+1-1,1);    //rs:='f'+inttohex(i-1,1);
+snt:= '217B05'+rs+he+'0D';  //snt:='!{'+'05'+rs+#13#10;
+snt:=hextostr(snt);
+sleep(3000);
+form1.ComPort.WriteStr(snt);
+Sl.Free;
+ MyThread.Terminate;
 end;
 end;
+end;
+end;
+
 (******************************************************************************)
 
-procedure TForm1.ComPortRxChar(Sender: TObject; Count: Integer);
-var
-  Str: String;
+procedure TForm1.ComDataPacket1Packet(Sender: TObject; const Str: string);
+var str1:string;
 begin
-  ComPort.ReadStr(Str, Count);
-  str:=strtohex(str);
-  str:=StringReplace(str, '0A 81', '21',[rfReplaceAll, rfIgnoreCase]);
-  str:=StringReplace(str, '0A 82', '40',[rfReplaceAll, rfIgnoreCase]);
-  str:=StringReplace(str, '0A 83', '0D',[rfReplaceAll, rfIgnoreCase]);
-  str:=StringReplace(str, '0A 84', '0A',[rfReplaceAll, rfIgnoreCase]);
-  load_ve(str);
+str1:=strtohex(str);
+  str1:=StringReplace(str1, '0A 81', '21',[rfReplaceAll, rfIgnoreCase]);
+  str1:=StringReplace(str1, '0A 82', '40',[rfReplaceAll, rfIgnoreCase]);
+  str1:=StringReplace(str1, '0A 83', '0D',[rfReplaceAll, rfIgnoreCase]);
+  str1:=StringReplace(str1, '0A 84', '0A',[rfReplaceAll, rfIgnoreCase]);
+  load_ve(str1);
   stringgrid2.Enabled:=true;
-  lambda_obr(str);
+  if starttune then lambda_obr(str1);
 end;
 
 (******************************************************************************)
 
 procedure TForm1.FormCreate(Sender: TObject);
 var i,j,k,d,razm:integer; filename:string;
+Sl,s1: TStringList;
 begin
 fileName := ExtractFilePath(ParamStr(0)) + 'Config.ini';
 if not FileExists(fileName)
   then with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
   begin
-   WriteString('DIR', 'EESAVE', ExtractFilePath(ParamStr(0)));
-   WriteString('DIR', 'EEPROM', ExtractFilePath(ParamStr(0)));
-   WriteString('DIR', 'LOG', ExtractFilePath(ParamStr(0)));
+    WriteString('DIR', 'COMB', '57600');
+    WriteString('DIR', 'COMP', '1');
    WriteString('TUNEUP', 'StartPoint', inttostr(1));
   for d:=1 to 16 do
   begin
@@ -561,15 +701,18 @@ if not FileExists(fileName)
     Free;
 end;
 
+
+/////////////////////////////////
+Sl := TStringList.Create;
+S1 := TStringList.Create;
+Sl.Delimiter := ' '; // <-- разделитель
+S1.Delimiter := ':'; // <-- разделитель
+///
 with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
   begin
-    openDialog2.InitialDir := ReadString('DIR', 'EEPROM', '');
-    openDialog1.InitialDir := ReadString('DIR', 'LOG', '');
-    saveDialog1.InitialDir := ReadString('DIR', 'EESAVE', '');
     //VE.txt
-    saveDialog2.InitialDir := ReadString('DIR', 'EEPROM', '');
-    openDialog3.InitialDir := ReadString('DIR', 'EEPROM', '');
     edit1.Text:=ReadString('TUNEUP', 'StartPoint', '');
+    Sl.DelimitedText := ReadString('POINTS', 'FIXED', ''); // <-- строка
  //разметка столбцов
   for d:=1 to 16 do
   begin
@@ -578,6 +721,7 @@ with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
 
     Free;
   end;
+
 // Разрешаем сохранять файлы типа .txt и .doc
 OpenDialog1.Filter := 'Secu3 Logfile|*.csv|';
 
@@ -605,6 +749,15 @@ for i:= 1 to 17 do begin
       inc(k)
       end;
     end;
+
+      ////////////////////////////////////
+for i := 0 to sl.count-1 do
+  begin
+S1.DelimitedText :=sl[i];
+form1.StringGrid2.Rows[strtoint(s1[0])].Objects[strtoint(s1[1])] := TObject(4);
+  end;
+///////////////
+
     StringGrid2.Hint := '0 0';
     StringGrid2.ShowHint := True;
 end;
@@ -643,37 +796,6 @@ ranges: array of array of Integer;
   zn:real;
   MyComponent,MyComponent1: TComponent;
   d:integer;
-  const
-  RANGE_LEFT = 0;
-  RANGE_RIGTH = 1;
-
-  procedure SetRangeValue(Number: Integer; EditLeft, EditRigth: TEdit);
-  begin
-    // заполняем диапозон
-    if number=15 then begin
-    ranges[Number - 1][RANGE_LEFT] := StrToIntDef(EditLeft.Text, 0);
-    ranges[Number - 1][RANGE_RIGTH] := StrToIntDef('9000', 0);
-    end
-    else begin
-    ranges[Number - 1][RANGE_LEFT] := StrToIntDef(EditLeft.Text, 0);
-    ranges[Number - 1][RANGE_RIGTH] := StrToIntDef(EditRigth.Text, 0)-1;
-    end;
-  end;
-
-   procedure ProcessRangeValue(AValue: Integer;AD: Integer);
-  var
-    I: Integer;
-  begin
-    // ищем по диапозону и сохраняем результат
-    for I := 0 to Length(ranges) - 1 do
-    begin
-      if (AValue >= ranges[I][RANGE_LEFT]) and (AValue <= ranges[I][RANGE_RIGTH]) then
-      begin
-        s1[i]:=s1[i]+arr[1,AD]; inc(n1[i]);
-        Break;
-      end;
-    end;
-  end;
 
 begin
 Pointer(arr) := arh;
@@ -682,42 +804,8 @@ for i:=0 to 15 do  begin
   s1[i]:=0;
   sr1[i]:=0;
 end;
-Try
+                                                                          //
 
- // готовим диапозон
-  SetLength(ranges, 16);
-  for I := 0 to 15 do
-  begin
-    SetLength(ranges[I], 2);
-  end;
-  //Заполняем
-  for d:=2 to 16 do
-  begin
-   MyComponent := Form4.FindComponent('Edit'+IntToStr(d-1));
-   MyComponent1 := Form4.FindComponent('Edit'+IntToStr(d));
-   if MyComponent <> nil then if d=16 then begin
-   SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
-   SetRangeValue(15, TEdit(MyComponent1), TEdit(MyComponent1));
-   end else  SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
-  end;
-  // проверяем значения
-  for I := 0 to N do begin
-  begin
-    cs := Floor(arr[0, I] / 1);
-    ProcessRangeValue(cs,i);
-  end;
-  end
-Except
-      ShowMessage('Неизвестная ошибка');
-  end;
-
-//Нахождение среднего арифметического и перевод в сотые
-for i := 0 to 15 do
- begin
-   if n1[i]>0 then begin
-   sr1[i]:=(s1[i]/n1[i]);
-   end;
- end;
 /// Выбираем поле куда вставлять значения
 for i:= 2 to form1.stringGrid2.Rowcount do begin
 Flag := Integer(form1.StringGrid2.Rows[i-1].Objects[k]);
@@ -754,22 +842,23 @@ end;
 (******************************************************************************)
 
 procedure TForm1.N10Click(Sender: TObject);   //Запуск пересчета значений
-var i:integer; OldCursor: TCursor;
-logname,lname,eename,ee:string;
-buttonSelected:integer;
+var buttonSelected:integer;
 begin
+if N10.caption<>'Стоп' then
 buttonSelected:= MessageDlg('Запустить Online редактирование?',mtInformation, [mbYes,mbCancel], 0);
    if buttonSelected = mrYes    then begin
- OldCursor := Screen.Cursor;
- //Screen.Cursor := crHourGlass;
-//
- // Screen.Cursor := OldCursor;
-    // form1.Caption:=form1.Caption+ ' - Изменено';
      Button3.Enabled:=true;
      N3DPlot1.Enabled:=true;
      N3DPlot2.Enabled:=true;
-     N10.Enabled:=false;
-   end;
+     N10.caption:='Стоп';
+     if not starttune then starttune:=true;
+   end
+   else
+       begin
+     form1.StringGrid2.Enabled:=true;
+      starttune:=false;
+      N10.caption:='Запуск';
+       end;
 
 
 end;
@@ -777,7 +866,6 @@ end;
 procedure TForm1.N12Click(Sender: TObject);
 var f1:textfile; i,j,iTmp: Integer; st,fname:string;
 begin
-  OpenDialog3.InitialDir := form2.Edit2.Text;
 // Разрешаем сохранять файлы типа .txt и .doc
   OpenDialog3.Filter := 'VE Text|*.txt|';
 
@@ -785,8 +873,7 @@ begin
  OpenDialog3.DefaultExt := '*.txt';
 
   // Выбор текстовых файлов как стартовый тип фильтра
- OpenDialog3.FilterIndex := 1;
-openDialog3.InitialDir := form2.Edit1.Text;
+OpenDialog3.FilterIndex := 1;
 
 if Form1.OpenDialog3.Execute then begin//если выбран файл
   fname:=OpenDialog3.FileName;

@@ -4,8 +4,8 @@ object Form1: TForm1
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = 'VEOnline'
-  ClientHeight = 547
-  ClientWidth = 1099
+  ClientHeight = 530
+  ClientWidth = 1012
   Color = clBtnFace
   Constraints.MinHeight = 530
   Constraints.MinWidth = 888
@@ -28,6 +28,20 @@ object Form1: TForm1
     ComPort = ComPort
     LedSignal = lsConn
     Kind = lkRedLight
+  end
+  object Label5: TLabel
+    Left = 886
+    Top = 168
+    Width = 53
+    Height = 13
+    Caption = #1054#1073#1086#1088#1086#1090#1099': '
+  end
+  object Label6: TLabel
+    Left = 886
+    Top = 187
+    Width = 62
+    Height = 13
+    Caption = #1050#1086#1088#1088#1077#1082#1094#1080#1103': '
   end
   object StringGrid2: TStringGrid
     Left = 7
@@ -236,40 +250,41 @@ object Form1: TForm1
     TabOrder = 4
     OnClick = BitBtn1Click
   end
-  object Memo1: TMemo
+  object Panel4: TPanel
     Left = 886
-    Top = 160
-    Width = 203
-    Height = 282
+    Top = 8
+    Width = 123
+    Height = 146
+    BevelInner = bvLowered
     TabOrder = 5
-  end
-  object ComComboBox2: TComComboBox
-    Left = 236
-    Top = 487
-    Width = 59
-    Height = 21
-    ComPort = ComPort
-    ComProperty = cpBaudRate
-    AutoApply = True
-    Text = '57600'
-    Style = csDropDownList
-    ItemIndex = 12
-    TabOrder = 6
-  end
-  object ComComboBox1: TComComboBox
-    Left = 236
-    Top = 460
-    Width = 59
-    Height = 21
-    ComPort = ComPort
-    ComProperty = cpPort
-    AutoApply = True
-    Style = csDropDownList
-    ItemIndex = -1
-    TabOrder = 7
+    object Label4: TLabel
+      Left = 40
+      Top = 10
+      Width = 49
+      Height = 13
+      Caption = #1044#1077#1081#1089#1090#1074#1080#1103
+    end
+    object Button5: TButton
+      Left = 24
+      Top = 29
+      Width = 75
+      Height = 25
+      Caption = 'Save VE'
+      TabOrder = 0
+      OnClick = EEPROM1Click
+    end
+    object Button6: TButton
+      Left = 8
+      Top = 60
+      Width = 105
+      Height = 25
+      Caption = 'Save fixed Points'
+      TabOrder = 1
+      OnClick = Button6Click
+    end
   end
   object MainMenu1: TMainMenu
-    Left = 928
+    Left = 1160
     Top = 8
     object N1: TMenuItem
       Caption = #1060#1072#1081#1083
@@ -303,11 +318,6 @@ object Form1: TForm1
       Caption = ' |'
       Enabled = False
     end
-    object EEPROM1: TMenuItem
-      Caption = 'Save to Secu'
-      Hint = #1053#1072#1079#1074#1072#1085#1080#1077' '#1086#1090#1082#1088#1099#1090#1086#1075#1086' EEPROM '#1092#1072#1081#1083#1072' '#1080' '#1079#1072#1087#1080#1089#1072#1085#1085#1086#1081' '#1087#1088#1086#1096#1080#1074#1082#1080
-      OnClick = EEPROM1Click
-    end
     object Log1: TMenuItem
       Caption = 'Status:'
       Enabled = False
@@ -315,24 +325,32 @@ object Form1: TForm1
     end
   end
   object OpenDialog1: TOpenDialog
-    Left = 1032
+    Left = 1264
     Top = 8
   end
   object SaveDialog1: TSaveDialog
-    Left = 984
+    Left = 1216
     Top = 8
   end
   object OpenDialog2: TOpenDialog
-    Left = 1032
+    Left = 1264
     Top = 56
   end
   object OpenDialog3: TOpenDialog
-    Left = 1032
+    Left = 1264
     Top = 112
   end
   object SaveDialog2: TSaveDialog
-    Left = 984
+    Left = 1216
     Top = 56
+  end
+  object ComDataPacket1: TComDataPacket
+    ComPort = ComPort
+    IncludeStrings = True
+    MaxBufferSize = 8192
+    OnPacket = ComDataPacket1Packet
+    Left = 1208
+    Top = 120
   end
   object ComPort: TComPort
     BaudRate = br57600
@@ -341,6 +359,8 @@ object Form1: TForm1
     StopBits = sbOneStopBit
     DataBits = dbEight
     Events = [evRxChar, evTxEmpty, evRxFlag, evRing, evBreak, evCTS, evDSR, evError, evRLSD, evRx80Full]
+    Buffer.InputSize = 8192
+    Buffer.OutputSize = 8192
     FlowControl.OutCTSFlow = False
     FlowControl.OutDSRFlow = False
     FlowControl.ControlDTR = dtrEnable
@@ -348,9 +368,8 @@ object Form1: TForm1
     FlowControl.XonXoffOut = False
     FlowControl.XonXoffIn = False
     StoredProps = [spBasic]
-    TriggersOnRxChar = True
-    OnRxChar = ComPortRxChar
-    Left = 920
+    TriggersOnRxChar = False
+    Left = 1152
     Top = 64
   end
 end
