@@ -22,7 +22,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, Menus, StdCtrls,Masks, Grids, ExtCtrls,TeeProcs, TeEngine,Chart,math,IniFiles,unit2,
-  Buttons, AdPort, OoMisc, ADTrmEmu, AdPacket, CPort, CPortCtl;
+  Buttons, AdPort, OoMisc, ADTrmEmu, AdPacket, CPort, CPortCtl, SDL_Gauge;
 
 type
   TForm1 = class(TForm)
@@ -66,6 +66,7 @@ type
     Label5: TLabel;
     Label6: TLabel;
     Timer1: TTimer;
+    Scalelb: TScaleGauge;
     procedure FormCreate(Sender: TObject);
     procedure N10Click(Sender: TObject);
     procedure Button1Click(Sender: TObject);
@@ -93,6 +94,9 @@ type
     procedure ComDataPacket1Packet(Sender: TObject; const Str: string);
     procedure Button6Click(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
+    procedure lambda_obr(str:string);
+    procedure load_ve(str:string);
+    procedure load_RPM(str:string);
 
   private
     { Private declarations }
@@ -321,8 +325,8 @@ try
   if ((ACol<>C) or (ARow<>R)) then
     begin
       C:=ACol; R:=ARow;
-     Application.CancelHint;
-      //StringGrid2.Hint:=inttostr(nvhod[c,r-1]);
+      Application.CancelHint;
+     // StringGrid2.Hint:=inttostr(nvhod[c,r-1]);
       StringGrid2.Selection := TGridRect(rect(C, R, c, r));
     end;
 except
@@ -480,23 +484,6 @@ end;
 procedure TForm1.Button2Click(Sender: TObject);      //Открыть Порт
 var i,d:integer;
 begin
-// готовим диапозон
-  SetLength(ranges, 16);
-  for I := 0 to 15 do
-  begin
-    SetLength(ranges[I], 2);
-  end;
-  //Заполняем
-  for d:=2 to 16 do
-  begin
-   MyComponent := Form4.FindComponent('Edit'+IntToStr(d-1));
-   MyComponent1 := Form4.FindComponent('Edit'+IntToStr(d));
-   if MyComponent <> nil then if d=16 then begin
-   SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
-   SetRangeValue(15, TEdit(MyComponent1), TEdit(MyComponent1));
-   end else  SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
-  end;
-
 Button3.Enabled:=true;
 N3DPlot1.Enabled:=true;
 N3DPlot2.Enabled:=true;
@@ -508,7 +495,10 @@ ComPort.BaudRate:=strtobaudrate(form2.Comcombobox2.Text);
 if not ComPort.Connected then begin
 try
     ComPort.Open;
-   if ComPort.Connected then form1.ComPort.WriteStr('!h{'+#13#10) else
+   if ComPort.Connected then begin
+   form1.ComPort.WriteStr('!h"'+#13#10);
+    end
+   else
    ShowMessage('Не удалось подключиться к Secu-3T');
 except
 on E : Exception do
@@ -567,7 +557,7 @@ begin
 result := AnsiPos(scstr, str);
 end;
 (******************************************************************************)
-procedure load_ve(str:string);   //Загрузка VE
+procedure TForm1.load_ve(str:string);   //Загрузка VE
 var Sl: TStringList;
 sdl:string;
 i,j,r:integer;
@@ -581,7 +571,7 @@ sdl:= str;
 Delete(sdl, 1, 9);   //Удаляем начальные биты
 r:=16-strtoint('$'+Copy(sdl, 1, 1)); //Вычисляем расход
 Delete(sdl, 1, 3);   //Удаляем биты расхода
-Delete(sdl, 48, 3);   //Удаляем биты конца строки
+Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
 Sl.DelimitedText := sdl; // <-- строка
    ////////////////////   Заполнение
    for i:= 1 to form1.stringGrid2.Rowcount-1 do begin
@@ -597,8 +587,8 @@ if (scan(str,'40 7B 05 F0')<>0) and (ve_loaded[1]=true) then form1.ComPort.Write
 end;
 end;
 (******************************************************************************)
-
-procedure lambda_obr(str:string);
+                                                                               //Процедура запуска коррекции
+procedure TForm1.lambda_obr(str:string);
 var Sl: TStringList;
 sdl:string;
 l,ob,obt,r:integer;
@@ -619,7 +609,6 @@ obt:=ProcessRangeValue(ob);
  statusline:=sdl;
  if obt=15 then obt:=0;
       form1.StringGrid2.Selection := TGridRect(rect(r, obt+1, r, obt+1));
-      form1.StringGrid2.Rows[obt+1].Objects[r]:=TObject(3);
      MyThread:=TMyThread.Create(False);
      MyThread.Priority:=tpNormal;
     end;
@@ -627,7 +616,7 @@ Sl.Free;
 end;
 ////////////////////////////////
 
-procedure TMyThread.Execute;
+procedure TMyThread.Execute;                                              //Заполнение массива коррекции
 var sl,s1:TStringList;
 l,ob,obt,r:integer;
 lf,data:real;
@@ -646,7 +635,8 @@ r:=strtoint('$'+sl[14]); //Вычисляем расход
    if not form1.timer1.Enabled then form1.timer1.Enabled:=true;
    if obt<>0 then begin  //Проверка на наличие оборотов
    form1.Label5.Caption:='Обороты: '+inttostr(ob);
-   form1.Label6.Caption:='Коррекция: '+FormatFloat('0.##', lf* 100)+'% ';
+   form1.Label6.Caption:='Коррекция: '+FormatFloat('0.##', lf*100)+'% ';
+   form1.Scalelb.Value:=lf*100;
   /// Обработки
   if not obrab then
 if abs(lf*100)>5 then
@@ -662,7 +652,7 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.Timer1Timer(Sender: TObject);
+procedure TForm1.Timer1Timer(Sender: TObject);                          //Обработка коррекции
 var sdl,l1:string;
 snt,rs,he:string;
 l,ob,obt,r:integer;
@@ -675,7 +665,11 @@ for j := 1 to 16 do
 if nvhod[i,j]>150 then  begin
 obrab:=true;
 poi:=databuf[i,j]/nvhod[i,j];
+poi:=poi-sqrt(((poi*poi)+((poi/2)*(poi/2)))/2);                   //Коэфициент
 poi:=poi+strtofloat(form1.stringGrid2.Cells[i,j]);
+if (poi>0) and (poi<2) then begin
+if form1.StringGrid2.Rows[j].Objects[i]<>TObject(4) then
+    begin
 form1.stringGrid2.Cells[i,j]:=FormatFloat('0.##', poi);
 form1.StringGrid2.Rows[j].Objects[i] := TObject(2);
 he:=he+inttohex(trunc(poi*128),2);
@@ -683,13 +677,67 @@ rs:=inttohex(17-i-1,1)+inttohex(j-1,1);    //rs:='f'+inttohex(i-1,1);
 snt:= '217B05'+rs+he+'0D';  //snt:='!{'+'05'+rs+#13#10;
 snt:=hextostr(snt);
 form1.ComPort.WriteStr(snt);
+    end;
+end;
 databuf[i,j]:=0;
 nvhod[i,j]:=0;
+poi:=0;
 obrab:=false;
 end;
 
 end;
 
+(******************************************************************************)
+procedure TForm1.load_RPM(str:string);   //Загрузка RPM
+var Sl: TStringList;
+sdl,rpm:string;
+i,j,r,d:integer;
+point:real;
+begin
+Sl := TStringList.Create;
+Sl.Delimiter := ' '; // <-- разделитель
+if (scan(str,'40 22 00')<>0)then begin
+/////////////// Парсинг
+sdl:= str;
+Delete(sdl, 1, 9);   //Удаляем начальные биты
+Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
+Sl.DelimitedText := sdl; // <-- строка
+   ////////////////////   Заполнение
+   i:=0;
+   d:=1;
+   while i<Sl.count do begin
+   r:=smallint(StrToInt('$'+sl[i+1]+sl[i]));
+    i:=i+2;
+    rpm:=inttostr(r);
+    if length(rpm)=3 then rpm:='0'+rpm;    
+    form1.stringGrid2.Cells[0,d]:=rpm;  //Значение оборотов
+    MyComponent := Form4.FindComponent('Edit'+IntToStr(d));
+    TEdit(MyComponent).Text:=rpm;
+    inc(d);
+end;
+
+   // готовим диапозон
+  SetLength(ranges, 16);
+  for I := 0 to 15 do
+  begin
+    SetLength(ranges[I], 2);
+  end;
+  //Заполняем
+  for d:=2 to 16 do
+  begin
+   MyComponent := Form4.FindComponent('Edit'+IntToStr(d-1));
+   MyComponent1 := Form4.FindComponent('Edit'+IntToStr(d));
+   if MyComponent <> nil then if d=16 then begin
+   SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
+   SetRangeValue(15, TEdit(MyComponent1), TEdit(MyComponent1));
+   end else  SetRangeValue(d-1, TEdit(MyComponent), TEdit(MyComponent1));
+  end;
+
+
+Sl.Free;
+form1.ComPort.WriteStr('!h{'+#13#10)
+end;
+end;
 
 (******************************************************************************)
 
@@ -701,6 +749,7 @@ str1:=strtohex(str);
   str1:=StringReplace(str1, '0A 82', '40',[rfReplaceAll, rfIgnoreCase]);
   str1:=StringReplace(str1, '0A 83', '0D',[rfReplaceAll, rfIgnoreCase]);
   str1:=StringReplace(str1, '0A 84', '0A',[rfReplaceAll, rfIgnoreCase]);
+  load_RPM(str1);
   load_ve(str1);
   stringgrid2.Enabled:=true;
   if starttune then lambda_obr(str1);

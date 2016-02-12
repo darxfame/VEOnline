@@ -31,14 +31,14 @@ object Form1: TForm1
   end
   object Label5: TLabel
     Left = 886
-    Top = 168
+    Top = 113
     Width = 53
     Height = 13
     Caption = #1054#1073#1086#1088#1086#1090#1099': '
   end
   object Label6: TLabel
     Left = 886
-    Top = 187
+    Top = 132
     Width = 62
     Height = 13
     Caption = #1050#1086#1088#1088#1077#1082#1094#1080#1103': '
@@ -254,7 +254,7 @@ object Form1: TForm1
     Left = 886
     Top = 8
     Width = 123
-    Height = 146
+    Height = 97
     BevelInner = bvLowered
     TabOrder = 5
     object Label4: TLabel
@@ -282,6 +282,40 @@ object Form1: TForm1
       TabOrder = 1
       OnClick = Button6Click
     end
+  end
+  object Scalelb: TScaleGauge
+    Left = 886
+    Top = 151
+    Width = 124
+    Height = 57
+    Background = gbHorizGrad
+    CaptionColor = clBlack
+    CaptionPosX = 10
+    CaptionPosY = 10
+    CaptionSize = 12
+    CaptionStyle = [fsBold]
+    ColorBg1 = clGray
+    ColorBg2 = clWhite
+    ColorIndex1 = clPurple
+    ColorIndex2 = clRed
+    ColorCover = clSilver
+    ColorScale = clBlack
+    ColorScheme = csBWG
+    Enabled = True
+    FixedDial = True
+    FrameStyleOuter = fsRaised
+    FrameStyleInner = fsLowered
+    IndexMode = gimDualColorBand
+    Logarithmic = False
+    MarginLeft = 3
+    MarginRight = 3
+    MarginTop = 10
+    MarginBottom = 10
+    Max = 40.000000000000000000
+    Min = -40.000000000000000000
+    MinTicks = 0
+    Orientation = goHorizontal
+    ShortTicks = False
   end
   object MainMenu1: TMainMenu
     Left = 1160
@@ -374,7 +408,7 @@ object Form1: TForm1
   end
   object Timer1: TTimer
     Enabled = False
-    Interval = 10000
+    Interval = 5000
     OnTimer = Timer1Timer
     Left = 1152
     Top = 120
