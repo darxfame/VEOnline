@@ -259,7 +259,7 @@ begin
 //Читаем значение флага, которое записано под видом указателя на объект.
   Flag := Integer(StringGrid2.Rows[ARow].Objects[ACol]);
   //Если флаг не равен
-  if (Flag > 1) and (Flag < 5)then Exit;
+  if (Flag < 1) and (Flag > 5)then Exit;
 with StringGrid2 do
   begin
   if (ACol>0) and(ARow>0) then begin
@@ -293,7 +293,7 @@ begin
   with StringGrid2 do
   begin
   //Если произошёл щелчок левой кнопкой мыши - устанавливаем флаг.
-  if (Flag <> 2) and (Flag <> 4) and (Flag <> 1)then Exit else
+  if (Flag < 1) and (Flag > 5) then Exit else
   if (Button = mbLeft)and (ssShift in Shift)then begin
     //Под видом указателя на объект, который связан с ячейкой, записываем
     //значение флага. Значение флага, равное 1, означает, что цвет ячейки изменён.
