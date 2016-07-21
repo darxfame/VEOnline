@@ -22,7 +22,7 @@ interface
 uses
   Windows, Messages, SysUtils, Variants, Classes, Graphics, Controls, Forms,
   Dialogs, Menus, StdCtrls,Masks, Grids, ExtCtrls,TeeProcs, TeEngine,Chart,math,IniFiles,unit2,
-  Buttons, AdPort, OoMisc, ADTrmEmu, AdPacket, CPort, CPortCtl, SDL_Gauge;
+  Buttons, CPort, CPortCtl, SDL_Gauge;
 
 type
   TForm1 = class(TForm)
@@ -90,7 +90,6 @@ type
     procedure StringGrid2SelectCell(Sender: TObject; ACol, ARow: Integer;
       var CanSelect: Boolean);
     procedure EEPROM1Click(Sender: TObject);
-   // procedure ComPortRxChar(Sender: TObject; Count: Integer);
     procedure ComDataPacket1Packet(Sender: TObject; const Str: string);
     procedure Button6Click(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
@@ -138,10 +137,10 @@ implementation
 
 uses Unit3, Unit4;
 Const
-Ix=50;  Iy=50;  //величины отступов от краев поля вывода
+Ix=50;  Iy=50;  //ГўГҐГ«ГЁГ·ГЁГ­Г» Г®ГІГ±ГІГіГЇГ®Гў Г®ГІ ГЄГ°Г ГҐГў ГЇГ®Г«Гї ГўГ»ГўГ®Г¤Г 
 ndx=10;
-ndy=50; //число разбиений по осям (x, y), сетка графика
-nc=7; mc=2; // константы для вывода оцифровки осей
+ndy=50; //Г·ГЁГ±Г«Г® Г°Г Г§ГЎГЁГҐГ­ГЁГ© ГЇГ® Г®Г±ГїГ¬ (x, y), Г±ГҐГІГЄГ  ГЈГ°Г ГґГЁГЄГ 
+nc=7; mc=2; // ГЄГ®Г­Г±ГІГ Г­ГІГ» Г¤Г«Гї ГўГ»ГўГ®Г¤Г  Г®Г¶ГЁГґГ°Г®ГўГЄГЁ Г®Г±ГҐГ©
   BUF_SZ = 2048;
   NAMEN_SZ = 326;
   NAMEE_SZ = 342;
@@ -150,21 +149,21 @@ nc=7; mc=2; // константы для вывода оцифровки осей
   RANGE_LEFT = 0;
   RANGE_RIGTH = 1;
 Var
-  eeprom:string;       //Буфер для записи в *.bin
-  buf: array [0..BUF_SZ-1] of byte; // буфер чтения
-  hexname:string;   //Имя прошивки
+  eeprom:string;       //ГЃГіГґГҐГ° Г¤Г«Гї Г§Г ГЇГЁГ±ГЁ Гў *.bin
+  buf: array [0..BUF_SZ-1] of byte; // ГЎГіГґГҐГ° Г·ГІГҐГ­ГЁГї
+  hexname:string;   //Г€Г¬Гї ГЇГ°Г®ГёГЁГўГЄГЁ
   loglen:integer;
   data: array of array of real;
-  databuf: array[0..16,0..16] of real;    //Буфер для показа изменений
-  stsum:array [0..15,0..15] of real; //Суммы изменений после пересчета
-  ve_loaded:array[1..16] of boolean; //проверка загрузки таблиц
-  starttune,obrab:boolean; //Проверка запуска пересчета
+  databuf: array[0..16,0..16] of real;    //ГЃГіГґГҐГ° Г¤Г«Гї ГЇГ®ГЄГ Г§Г  ГЁГ§Г¬ГҐГ­ГҐГ­ГЁГ©
+  stsum:array [0..15,0..15] of real; //Г‘ГіГ¬Г¬Г» ГЁГ§Г¬ГҐГ­ГҐГ­ГЁГ© ГЇГ®Г±Г«ГҐ ГЇГҐГ°ГҐГ±Г·ГҐГІГ 
+  ve_loaded:array[1..16] of boolean; //ГЇГ°Г®ГўГҐГ°ГЄГ  Г§Г ГЈГ°ГіГ§ГЄГЁ ГІГ ГЎГ«ГЁГ¶
+  starttune,obrab:boolean; //ГЏГ°Г®ГўГҐГ°ГЄГ  Г§Г ГЇГіГ±ГЄГ  ГЇГҐГ°ГҐГ±Г·ГҐГІГ 
 
 {$R *.dfm}
 
 procedure SetRangeValue(Number: Integer; EditLeft, EditRigth: TEdit);
   begin
-    // заполняем диапозон
+    // Г§Г ГЇГ®Г«Г­ГїГҐГ¬ Г¤ГЁГ ГЇГ®Г§Г®Г­
     if number=15 then begin
     ranges[Number - 1][RANGE_LEFT] := StrToIntDef(EditLeft.Text, 0);
     ranges[Number - 1][RANGE_RIGTH] := StrToIntDef('9000', 0);
@@ -179,7 +178,7 @@ procedure SetRangeValue(Number: Integer; EditLeft, EditRigth: TEdit);
   var
     I: Integer;
   begin
-    // ищем по диапозону и сохраняем результат
+    // ГЁГ№ГҐГ¬ ГЇГ® Г¤ГЁГ ГЇГ®Г§Г®Г­Гі ГЁ Г±Г®ГµГ°Г Г­ГїГҐГ¬ Г°ГҐГ§ГіГ«ГјГІГ ГІ
     for I := 0 to Length(ranges) - 1 do
     begin
       if (AValue >= ranges[I][RANGE_LEFT]) and (AValue <= ranges[I][RANGE_RIGTH]) then
@@ -214,7 +213,7 @@ begin
 end;
 
 (******************************************************************************)
-function AsToAc(arrChars: array of byte) : string;       //Перевод ASCII в ANSI
+function AsToAc(arrChars: array of byte) : string;       //ГЏГҐГ°ГҐГўГ®Г¤ ASCII Гў ANSI
  Var
    i,kod: byte;
    arrTemp: array of byte;
@@ -240,14 +239,14 @@ function AsToAc(arrChars: array of byte) : string;       //Перевод ASCII в ANSI
 
 (******************************************************************************)
 
-procedure TabClear(n,r,k:integer);                 //Очистка таблиц
+procedure TabClear(n,r,k:integer);                 //ГЋГ·ГЁГ±ГІГЄГ  ГІГ ГЎГ«ГЁГ¶
 var iStroki,iStolbca:integer;
 begin
 if k=1 then  begin
 
 end;
 if k=2 then  begin
-//очистка ячеек таблицы
+//Г®Г·ГЁГ±ГІГЄГ  ГїГ·ГҐГҐГЄ ГІГ ГЎГ«ГЁГ¶Г»
 for iStolbca:=n to Form1.StringGrid2.ColCount do
 for iStroki:=r to Form1.StringGrid2.RowCount do
   Form1.StringGrid2.Cells[iStolbca,iStroki]:='';
@@ -257,12 +256,12 @@ end;
 (******************************************************************************)
 
 procedure TForm1.StringGrid2DrawCell(Sender: TObject; ACol, ARow: Integer;
-  Rect: TRect; State: TGridDrawState);                    //Перерисовка STRGRD2
+  Rect: TRect; State: TGridDrawState);                    //ГЏГҐГ°ГҐГ°ГЁГ±Г®ГўГЄГ  STRGRD2
 var Flag : Integer;
 begin
-//Читаем значение флага, которое записано под видом указателя на объект.
+//Г—ГЁГІГ ГҐГ¬ Г§Г­Г Г·ГҐГ­ГЁГҐ ГґГ«Г ГЈГ , ГЄГ®ГІГ®Г°Г®ГҐ Г§Г ГЇГЁГ±Г Г­Г® ГЇГ®Г¤ ГўГЁГ¤Г®Г¬ ГіГЄГ Г§Г ГІГҐГ«Гї Г­Г  Г®ГЎГєГҐГЄГІ.
   Flag := Integer(StringGrid2.Rows[ARow].Objects[ACol]);
-  //Если флаг не равен
+  //Г…Г±Г«ГЁ ГґГ«Г ГЈ Г­ГҐ Г°Г ГўГҐГ­
   if (Flag < 1) and (Flag > 5)then Exit;
 with StringGrid2 do
   begin
@@ -277,7 +276,7 @@ if (Flag = 4) then begin Canvas.Brush.Color:=claqua; end;
 if (Flag = 5) then begin Canvas.Brush.Color:=clred; end;
    except
    end;
-   Canvas.FillRect(Rect); //Текст тоже будет закрашен, его нужно перерисовать:
+   Canvas.FillRect(Rect); //Г’ГҐГЄГ±ГІ ГІГ®Г¦ГҐ ГЎГіГ¤ГҐГІ Г§Г ГЄГ°Г ГёГҐГ­, ГҐГЈГ® Г­ГіГ¦Г­Г® ГЇГҐГ°ГҐГ°ГЁГ±Г®ГўГ ГІГј:
    Canvas.TextOut(Rect.Left+2, Rect.Top+2, Cells[ACol, ARow]);
   end;
   end;
@@ -285,24 +284,24 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.StringGrid2MouseDown(Sender: TObject; Button: TMouseButton;   //Фиксация точек по клику
+procedure TForm1.StringGrid2MouseDown(Sender: TObject; Button: TMouseButton;   //Г”ГЁГЄГ±Г Г¶ГЁГї ГІГ®Г·ГҐГЄ ГЇГ® ГЄГ«ГЁГЄГі
   Shift: TShiftState; X, Y: Integer);
 var
   Col, Row : Integer;
   Flag : Integer;
 begin
-//Определяем координаты ячейки, на которой произошёл щелчок мыши.
+//ГЋГЇГ°ГҐГ¤ГҐГ«ГїГҐГ¬ ГЄГ®Г®Г°Г¤ГЁГ­Г ГІГ» ГїГ·ГҐГ©ГЄГЁ, Г­Г  ГЄГ®ГІГ®Г°Г®Г© ГЇГ°Г®ГЁГ§Г®ГёВёГ« Г№ГҐГ«Г·Г®ГЄ Г¬Г»ГёГЁ.
   StringGrid2.MouseToCell(X, Y, Col, Row);
   Flag := Integer(StringGrid2.Rows[Row].Objects[Col]);
   with StringGrid2 do
   begin
-  //Если произошёл щелчок левой кнопкой мыши - устанавливаем флаг.
+  //Г…Г±Г«ГЁ ГЇГ°Г®ГЁГ§Г®ГёВёГ« Г№ГҐГ«Г·Г®ГЄ Г«ГҐГўГ®Г© ГЄГ­Г®ГЇГЄГ®Г© Г¬Г»ГёГЁ - ГіГ±ГІГ Г­Г ГўГ«ГЁГўГ ГҐГ¬ ГґГ«Г ГЈ.
   if (Flag < 1) and (Flag > 5) then Exit else
   if (Button = mbLeft)and (ssShift in Shift)then begin
-    //Под видом указателя на объект, который связан с ячейкой, записываем
-    //значение флага. Значение флага, равное 1, означает, что цвет ячейки изменён.
+    //ГЏГ®Г¤ ГўГЁГ¤Г®Г¬ ГіГЄГ Г§Г ГІГҐГ«Гї Г­Г  Г®ГЎГєГҐГЄГІ, ГЄГ®ГІГ®Г°Г»Г© Г±ГўГїГ§Г Г­ Г± ГїГ·ГҐГ©ГЄГ®Г©, Г§Г ГЇГЁГ±Г»ГўГ ГҐГ¬
+    //Г§Г­Г Г·ГҐГ­ГЁГҐ ГґГ«Г ГЈГ . Г‡Г­Г Г·ГҐГ­ГЁГҐ ГґГ«Г ГЈГ , Г°Г ГўГ­Г®ГҐ 1, Г®Г§Г­Г Г·Г ГҐГІ, Г·ГІГ® Г¶ГўГҐГІ ГїГ·ГҐГ©ГЄГЁ ГЁГ§Г¬ГҐГ­ВёГ­.
     Rows[Row].Objects[Col] := TObject(4);
-  //Если произошёл щелчок правой кнопкой мыши - сбрасываем флаг.
+  //Г…Г±Г«ГЁ ГЇГ°Г®ГЁГ§Г®ГёВёГ« Г№ГҐГ«Г·Г®ГЄ ГЇГ°Г ГўГ®Г© ГЄГ­Г®ГЇГЄГ®Г© Г¬Г»ГёГЁ - Г±ГЎГ°Г Г±Г»ГўГ ГҐГ¬ ГґГ«Г ГЈ.
   end
   else
   if (Button = mbRight)and (ssShift in Shift)then begin
@@ -340,9 +339,9 @@ procedure TForm1.StringGrid2SelectCell(Sender: TObject; ACol, ARow: Integer;
 snt,vs,rs,he:string;
 begin
 if ComPort.Connected then begin
-poi:=InputBox('Редактирование значения', 'Введите значение', StringGrid2.Cells[ACol,ARow]);
+poi:=InputBox('ГђГҐГ¤Г ГЄГІГЁГ°Г®ГўГ Г­ГЁГҐ Г§Г­Г Г·ГҐГ­ГЁГї', 'Г‚ГўГҐГ¤ГЁГІГҐ Г§Г­Г Г·ГҐГ­ГЁГҐ', StringGrid2.Cells[ACol,ARow]);
 if not (strtofloat(poi)>0) or not (strtofloat(poi)<2) then
-MessageDlg('Ошибка, выход за границы диапазона',mtError, mbOKCancel, 0)
+MessageDlg('ГЋГёГЁГЎГЄГ , ГўГ»ГµГ®Г¤ Г§Г  ГЈГ°Г Г­ГЁГ¶Г» Г¤ГЁГ ГЇГ Г§Г®Г­Г ',mtError, mbOKCancel, 0)
 else begin
 StringGrid2.Cells[ACol,ARow] := poi;
 vs:=form1.stringGrid2.Cells[ACol,ARow];
@@ -354,25 +353,25 @@ form1.ComPort.WriteStr(snt);
 end;
 end
 else
-    ShowMessage('Secu-3t недоступен');
+    ShowMessage('Secu-3t Г­ГҐГ¤Г®Г±ГІГіГЇГҐГ­');
 end;
 (******************************************************************************)
 procedure TForm1.VEtxt1Click(Sender: TObject);
 var f1:textfile; i,k: Integer; fname:string;
 begin
 
-// Разрешаем сохранять файлы типа .txt и .doc
+// ГђГ Г§Г°ГҐГёГ ГҐГ¬ Г±Г®ГµГ°Г Г­ГїГІГј ГґГ Г©Г«Г» ГІГЁГЇГ  .txt ГЁ .doc
   saveDialog2.Filter := 'VE Text|*.txt|';
 
-  // Установка расширения по умолчанию
+  // Г“Г±ГІГ Г­Г®ГўГЄГ  Г°Г Г±ГёГЁГ°ГҐГ­ГЁГї ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ
   saveDialog2.DefaultExt := '*.txt';
    SaveDialog2.FileName:=FormatDateTime('dd.mm.yyyy_hh.nn.ss', Now)+'.txt';
-  // Выбор текстовых файлов как стартовый тип фильтра
+  // Г‚Г»ГЎГ®Г° ГІГҐГЄГ±ГІГ®ГўГ»Гµ ГґГ Г©Г«Г®Гў ГЄГ ГЄ Г±ГІГ Г°ГІГ®ГўГ»Г© ГІГЁГЇ ГґГЁГ«ГјГІГ°Г 
   saveDialog2.FilterIndex := 1;
-//сохранить текст из Memo1-рабочей области редактора
+//Г±Г®ГµГ°Г Г­ГЁГІГј ГІГҐГЄГ±ГІ ГЁГ§ Memo1-Г°Г ГЎГ®Г·ГҐГ© Г®ГЎГ«Г Г±ГІГЁ Г°ГҐГ¤Г ГЄГІГ®Г°Г 
 if Form1.SaveDialog2.Execute then begin
-  //Если файл выбран,
-  //то S присвоить спецификацию файла,
+  //Г…Г±Г«ГЁ ГґГ Г©Г« ГўГ»ГЎГ°Г Г­,
+  //ГІГ® S ГЇГ°ГЁГ±ГўГ®ГЁГІГј Г±ГЇГҐГ¶ГЁГґГЁГЄГ Г¶ГЁГѕ ГґГ Г©Г«Г ,
 
   fname:=SaveDialog2.FileName;
 
@@ -400,7 +399,7 @@ begin
 form4.show;
 end;
 (******************************************************************************)
-procedure UpdateResults();      //Занесение значений в Secu
+procedure UpdateResults();      //Г‡Г Г­ГҐГ±ГҐГ­ГЁГҐ Г§Г­Г Г·ГҐГ­ГЁГ© Гў Secu
 var i,j,k:integer;
 snt,vs,rs,he:string;
 begin
@@ -425,7 +424,7 @@ snt:='';
  form1.Log1.Caption:='Status: Sucsess';
 end;
 (******************************************************************************)
-procedure TForm1.Button1Click(Sender: TObject);      //Базовое заполнение ячеек
+procedure TForm1.Button1Click(Sender: TObject);      //ГЃГ Г§Г®ГўГ®ГҐ Г§Г ГЇГ®Г«Г­ГҐГ­ГЁГҐ ГїГ·ГҐГҐГЄ
 var i,j,k:integer; iTmp:integer;
 buttonSelected:integer;
 begin
@@ -433,10 +432,10 @@ iTmp:=17;
 stringGrid2.ColCount := iTmp;
 stringGrid2.RowCount := iTmp;
 if not (strtofloat(edit1.Text)>0) or not (strtofloat(edit1.Text)<2) then
-MessageDlg('Ошибка, выход за границы диапазона',mtError, mbOKCancel, 0)
+MessageDlg('ГЋГёГЁГЎГЄГ , ГўГ»ГµГ®Г¤ Г§Г  ГЈГ°Г Г­ГЁГ¶Г» Г¤ГЁГ ГЇГ Г§Г®Г­Г ',mtError, mbOKCancel, 0)
 else begin
-   //Загружаем в листинг список значений из edit1
-buttonSelected:= MessageDlg('Заменить значения?',mtInformation, [mbYes,mbCancel], 0);
+   //Г‡Г ГЈГ°ГіГ¦Г ГҐГ¬ Гў Г«ГЁГ±ГІГЁГ­ГЈ Г±ГЇГЁГ±Г®ГЄ Г§Г­Г Г·ГҐГ­ГЁГ© ГЁГ§ edit1
+buttonSelected:= MessageDlg('Г‡Г Г¬ГҐГ­ГЁГІГј Г§Г­Г Г·ГҐГ­ГЁГї?',mtInformation, [mbYes,mbCancel], 0);
    if buttonSelected = mrYes    then begin
 for i:= 1 to iTmp do begin
     k:=1;
@@ -454,7 +453,7 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.EditClick(Sender: TObject); //Занесение изменений таблицы в массив
+procedure TForm1.EditClick(Sender: TObject); //Г‡Г Г­ГҐГ±ГҐГ­ГЁГҐ ГЁГ§Г¬ГҐГ­ГҐГ­ГЁГ© ГІГ ГЎГ«ГЁГ¶Г» Гў Г¬Г Г±Г±ГЁГў
  var i,j,k:integer;
       hexve:real;
 begin
@@ -468,7 +467,7 @@ inc(k);
 end;
 except
 on E : Exception do
-      ShowMessage(E.ClassName+'Edit ошибка с сообщением : '+E.Message);
+      ShowMessage(E.ClassName+'Edit Г®ГёГЁГЎГЄГ  Г± Г±Г®Г®ГЎГ№ГҐГ­ГЁГҐГ¬ : '+E.Message);
 end;
 end;
 
@@ -481,7 +480,7 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.Button2Click(Sender: TObject);      //Открыть Порт
+procedure TForm1.Button2Click(Sender: TObject);      //ГЋГІГЄГ°Г»ГІГј ГЏГ®Г°ГІ
 var i,d:integer;
 begin
 Button3.Enabled:=true;
@@ -499,25 +498,25 @@ try
    form1.ComPort.WriteStr('!h"'+#13#10);
     end
    else
-   ShowMessage('Не удалось подключиться к Secu-3T');
+   ShowMessage('ГЌГҐ ГіГ¤Г Г«Г®Г±Гј ГЇГ®Г¤ГЄГ«ГѕГ·ГЁГІГјГ±Гї ГЄ Secu-3T');
 except
 on E : Exception do
       ShowMessage(E.Message+' '+form1.ComPort.Port);
 end;
      end
     else
-    ShowMessage('Secu-3T недоступен');
+    ShowMessage('Secu-3T Г­ГҐГ¤Г®Г±ГІГіГЇГҐГ­');
 end;
 (******************************************************************************)
 
-procedure TForm1.Button3Click(Sender: TObject);     //Закрыть порт
+procedure TForm1.Button3Click(Sender: TObject);     //Г‡Г ГЄГ°Г»ГІГј ГЇГ®Г°ГІ
 begin
   if ComPort.Connected then begin
   starttune:=false;
     ComPort.Close;
   end
     else
-    ShowMessage('Secu-3t уже отключен');
+    ShowMessage('Secu-3t ГіГ¦ГҐ Г®ГІГЄГ«ГѕГ·ГҐГ­');
 end;
 
 (******************************************************************************)
@@ -534,7 +533,7 @@ i,j,flag:integer;
 begin
 if form2.CheckBox1.Checked then begin
 fixed:='';
-     /// Выбираем Точки с флагом 4
+     /// Г‚Г»ГЎГЁГ°Г ГҐГ¬ Г’Г®Г·ГЄГЁ Г± ГґГ«Г ГЈГ®Г¬ 4
 for i:= 1 to form1.stringGrid2.Rowcount-1 do begin
 for j:= 1 to form1.stringGrid2.Colcount-1 do begin
 Flag := Integer(form1.StringGrid2.Rows[i].Objects[j]);
@@ -557,29 +556,29 @@ begin
 result := AnsiPos(scstr, str);
 end;
 (******************************************************************************)
-procedure TForm1.load_ve(str:string);   //Загрузка VE
+procedure TForm1.load_ve(str:string);   //Г‡Г ГЈГ°ГіГ§ГЄГ  VE
 var Sl: TStringList;
 sdl:string;
 i,j,r:integer;
 point:real;
 begin
 Sl := TStringList.Create;
-Sl.Delimiter := ' '; // <-- разделитель
+Sl.Delimiter := ' '; // <-- Г°Г Г§Г¤ГҐГ«ГЁГІГҐГ«Гј
 if (scan(str,'40 7B 05')<>0)then begin
-/////////////// Парсинг
+/////////////// ГЏГ Г°Г±ГЁГ­ГЈ
 sdl:= str;
-Delete(sdl, 1, 9);   //Удаляем начальные биты
-r:=16-strtoint('$'+Copy(sdl, 1, 1)); //Вычисляем расход
-Delete(sdl, 1, 3);   //Удаляем биты расхода
-Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
-Sl.DelimitedText := sdl; // <-- строка
-   ////////////////////   Заполнение
+Delete(sdl, 1, 9);   //Г“Г¤Г Г«ГїГҐГ¬ Г­Г Г·Г Г«ГјГ­Г»ГҐ ГЎГЁГІГ»
+r:=16-strtoint('$'+Copy(sdl, 1, 1)); //Г‚Г»Г·ГЁГ±Г«ГїГҐГ¬ Г°Г Г±ГµГ®Г¤
+Delete(sdl, 1, 3);   //Г“Г¤Г Г«ГїГҐГ¬ ГЎГЁГІГ» Г°Г Г±ГµГ®Г¤Г 
+Delete(sdl, length(sdl)-3, 4);   //Г“Г¤Г Г«ГїГҐГ¬ ГЎГЁГІГ» ГЄГ®Г­Г¶Г  Г±ГІГ°Г®ГЄГЁ
+Sl.DelimitedText := sdl; // <-- Г±ГІГ°Г®ГЄГ 
+   ////////////////////   Г‡Г ГЇГ®Г«Г­ГҐГ­ГЁГҐ
    for i:= 1 to form1.stringGrid2.Rowcount-1 do begin
     point:=strtoint('$'+Sl[i-1])/128;
     form1.stringGrid2.Cells[r,i]:=FormatFloat('0.##', point);
     if point<>strtofloat(form1.edit1.text) then
     if form1.StringGrid2.Rows[i].Objects[r]<>TObject(4) then
-    form1.StringGrid2.Rows[i].Objects[r] := TObject(1); //1-желтый,2-зеленый,4-голубой(запрет),5-красный(ошибка)
+    form1.StringGrid2.Rows[i].Objects[r] := TObject(1); //1-Г¦ГҐГ«ГІГ»Г©,2-Г§ГҐГ«ГҐГ­Г»Г©,4-ГЈГ®Г«ГіГЎГ®Г©(Г§Г ГЇГ°ГҐГІ),5-ГЄГ°Г Г±Г­Г»Г©(Г®ГёГЁГЎГЄГ )
 end;
 ve_loaded[r]:=true;
 Sl.Free;
@@ -587,7 +586,7 @@ if (scan(str,'40 7B 05 F0')<>0) and (ve_loaded[1]=true) then form1.ComPort.Write
 end;
 end;
 (******************************************************************************)
-                                                                               //Процедура запуска коррекции
+                                                                               //ГЏГ°Г®Г¶ГҐГ¤ГіГ°Г  Г§Г ГЇГіГ±ГЄГ  ГЄГ®Г°Г°ГҐГЄГ¶ГЁГЁ
 procedure TForm1.lambda_obr(str:string);
 var Sl: TStringList;
 sdl:string;
@@ -595,16 +594,16 @@ l,ob,obt,r:integer;
 begin
 sdl:='';
 Sl := TStringList.Create;
-Sl.Delimiter := ' '; // <-- разделитель
+Sl.Delimiter := ' '; // <-- Г°Г Г§Г¤ГҐГ«ГЁГІГҐГ«Гј
 if (scan(str,'40 71')<>0)then begin
 form1.StringGrid2.Enabled:=false;
-/////////////// Парсинг
+/////////////// ГЏГ Г°Г±ГЁГ­ГЈ
 sdl:= str;
-Delete(sdl, 1, 6);   //Удаляем начальные биты
-Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
-Sl.DelimitedText := sdl; // <-- строка
-r:=strtoint('$'+sl[14]); //Вычисляем расход
-ob:=strtoint('$'+sl[0]+sl[1]); //обороты
+Delete(sdl, 1, 6);   //Г“Г¤Г Г«ГїГҐГ¬ Г­Г Г·Г Г«ГјГ­Г»ГҐ ГЎГЁГІГ»
+Delete(sdl, length(sdl)-3, 4);   //Г“Г¤Г Г«ГїГҐГ¬ ГЎГЁГІГ» ГЄГ®Г­Г¶Г  Г±ГІГ°Г®ГЄГЁ
+Sl.DelimitedText := sdl; // <-- Г±ГІГ°Г®ГЄГ 
+r:=strtoint('$'+sl[14]); //Г‚Г»Г·ГЁГ±Г«ГїГҐГ¬ Г°Г Г±ГµГ®Г¤
+ob:=strtoint('$'+sl[0]+sl[1]); //Г®ГЎГ®Г°Г®ГІГ»
 obt:=ProcessRangeValue(ob);
  statusline:=sdl;
  if obt=15 then obt:=0;
@@ -616,28 +615,28 @@ Sl.Free;
 end;
 ////////////////////////////////
 
-procedure TMyThread.Execute;                                              //Заполнение массива коррекции
+procedure TMyThread.Execute;                                              //Г‡Г ГЇГ®Г«Г­ГҐГ­ГЁГҐ Г¬Г Г±Г±ГЁГўГ  ГЄГ®Г°Г°ГҐГЄГ¶ГЁГЁ
 var sl,s1:TStringList;
 l,ob,obt,r:integer;
 lf,data:real;
 begin
 Sl := TStringList.Create;
-Sl.Delimiter := ' '; // <-- разделитель
-Sl.DelimitedText:=statusline; // <-- строка
-r:=strtoint('$'+sl[14]); //Вычисляем расход
-   ////////////////////   Заполнение
+Sl.Delimiter := ' '; // <-- Г°Г Г§Г¤ГҐГ«ГЁГІГҐГ«Гј
+Sl.DelimitedText:=statusline; // <-- Г±ГІГ°Г®ГЄГ 
+r:=strtoint('$'+sl[14]); //Г‚Г»Г·ГЁГ±Г«ГїГҐГ¬ Г°Г Г±ГµГ®Г¤
+   ////////////////////   Г‡Г ГЇГ®Г«Г­ГҐГ­ГЁГҐ
    l:=smallint(StrToInt('$'+sl[46]+sl[47]));
    //l:=smallint($FFC8);   r:=1;
    lf:=l/512.0;
-   ob:=strtoint('$'+sl[0]+sl[1]); //обороты
+   ob:=strtoint('$'+sl[0]+sl[1]); //Г®ГЎГ®Г°Г®ГІГ»
    obt:=ProcessRangeValue(ob);
    if obt=15 then obt:=0;
    if not form1.timer1.Enabled then form1.timer1.Enabled:=true;
-   if obt<>0 then begin  //Проверка на наличие оборотов
-   form1.Label5.Caption:='Обороты: '+inttostr(ob);
-   form1.Label6.Caption:='Коррекция: '+FormatFloat('0.##', lf*100)+'% ';
+   if obt<>0 then begin  //ГЏГ°Г®ГўГҐГ°ГЄГ  Г­Г  Г­Г Г«ГЁГ·ГЁГҐ Г®ГЎГ®Г°Г®ГІГ®Гў
+   form1.Label5.Caption:='ГЋГЎГ®Г°Г®ГІГ»: '+inttostr(ob);
+   form1.Label6.Caption:='ГЉГ®Г°Г°ГҐГЄГ¶ГЁГї: '+FormatFloat('0.##', lf*100)+'% ';
    form1.Scalelb.Value:=lf*100;
-  /// Обработки
+  /// ГЋГЎГ°Г ГЎГ®ГІГЄГЁ
   if not obrab then
 if abs(lf*100)>5 then
    if form1.StringGrid2.Rows[obt+1].Objects[r]<>TObject(4) then
@@ -652,7 +651,7 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.Timer1Timer(Sender: TObject);                          //Обработка коррекции
+procedure TForm1.Timer1Timer(Sender: TObject);                          //ГЋГЎГ°Г ГЎГ®ГІГЄГ  ГЄГ®Г°Г°ГҐГЄГ¶ГЁГЁ
 var sdl,l1:string;
 snt,rs,he:string;
 l,ob,obt,r:integer;
@@ -665,7 +664,7 @@ for j := 1 to 16 do
 if nvhod[i,j]>150 then  begin
 obrab:=true;
 poi:=databuf[i,j]/nvhod[i,j];
-poi:=poi-sqrt(((poi*poi)+((poi/2)*(poi/2)))/2);                   //Коэфициент
+poi:=poi-sqrt(((poi*poi)+((poi/2)*(poi/2)))/2);                   //ГЉГ®ГЅГґГЁГ¶ГЁГҐГ­ГІ
 poi:=poi+strtofloat(form1.stringGrid2.Cells[i,j]);
 if (poi>0) and (poi<2) then begin
 if form1.StringGrid2.Rows[j].Objects[i]<>TObject(4) then
@@ -688,21 +687,21 @@ end;
 end;
 
 (******************************************************************************)
-procedure TForm1.load_RPM(str:string);   //Загрузка RPM
+procedure TForm1.load_RPM(str:string);   //Г‡Г ГЈГ°ГіГ§ГЄГ  RPM
 var Sl: TStringList;
 sdl,rpm:string;
 i,j,r,d:integer;
 point:real;
 begin
 Sl := TStringList.Create;
-Sl.Delimiter := ' '; // <-- разделитель
+Sl.Delimiter := ' '; // <-- Г°Г Г§Г¤ГҐГ«ГЁГІГҐГ«Гј
 if (scan(str,'40 22 00')<>0)then begin
-/////////////// Парсинг
+/////////////// ГЏГ Г°Г±ГЁГ­ГЈ
 sdl:= str;
-Delete(sdl, 1, 9);   //Удаляем начальные биты
-Delete(sdl, length(sdl)-3, 4);   //Удаляем биты конца строки
-Sl.DelimitedText := sdl; // <-- строка
-   ////////////////////   Заполнение
+Delete(sdl, 1, 9);   //Г“Г¤Г Г«ГїГҐГ¬ Г­Г Г·Г Г«ГјГ­Г»ГҐ ГЎГЁГІГ»
+Delete(sdl, length(sdl)-3, 4);   //Г“Г¤Г Г«ГїГҐГ¬ ГЎГЁГІГ» ГЄГ®Г­Г¶Г  Г±ГІГ°Г®ГЄГЁ
+Sl.DelimitedText := sdl; // <-- Г±ГІГ°Г®ГЄГ 
+   ////////////////////   Г‡Г ГЇГ®Г«Г­ГҐГ­ГЁГҐ
    i:=0;
    d:=1;
    while i<Sl.count do begin
@@ -710,19 +709,19 @@ Sl.DelimitedText := sdl; // <-- строка
     i:=i+2;
     rpm:=inttostr(r);
     if length(rpm)=3 then rpm:='0'+rpm;    
-    form1.stringGrid2.Cells[0,d]:=rpm;  //Значение оборотов
+    form1.stringGrid2.Cells[0,d]:=rpm;  //Г‡Г­Г Г·ГҐГ­ГЁГҐ Г®ГЎГ®Г°Г®ГІГ®Гў
     MyComponent := Form4.FindComponent('Edit'+IntToStr(d));
     TEdit(MyComponent).Text:=rpm;
     inc(d);
 end;
 
-   // готовим диапозон
+   // ГЈГ®ГІГ®ГўГЁГ¬ Г¤ГЁГ ГЇГ®Г§Г®Г­
   SetLength(ranges, 16);
   for I := 0 to 15 do
   begin
     SetLength(ranges[I], 2);
   end;
-  //Заполняем
+  //Г‡Г ГЇГ®Г«Г­ГїГҐГ¬
   for d:=2 to 16 do
   begin
    MyComponent := Form4.FindComponent('Edit'+IntToStr(d-1));
@@ -798,15 +797,15 @@ end;
 /////////////////////////////////
 Sl := TStringList.Create;
 S1 := TStringList.Create;
-Sl.Delimiter := ' '; // <-- разделитель
-S1.Delimiter := ':'; // <-- разделитель
+Sl.Delimiter := ' '; // <-- Г°Г Г§Г¤ГҐГ«ГЁГІГҐГ«Гј
+S1.Delimiter := ':'; // <-- Г°Г Г§Г¤ГҐГ«ГЁГІГҐГ«Гј
 ///
 with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
   begin
     //VE.txt
     edit1.Text:=ReadString('TUNEUP', 'StartPoint', '');
-    Sl.DelimitedText := ReadString('POINTS', 'FIXED', ''); // <-- строка
- //разметка столбцов
+    Sl.DelimitedText := ReadString('POINTS', 'FIXED', ''); // <-- Г±ГІГ°Г®ГЄГ 
+ //Г°Г Г§Г¬ГҐГІГЄГ  Г±ГІГ®Г«ГЎГ¶Г®Гў
   for d:=1 to 16 do
   begin
    stringGrid2.Cells[0,d]:=ReadString('GridRPM', inttostr(d), '');
@@ -815,25 +814,25 @@ with TIniFile.Create(ExtractFilePath(ParamStr(0)) + 'Config.ini') do
     Free;
   end;
 
-// Разрешаем сохранять файлы типа .txt и .doc
+// ГђГ Г§Г°ГҐГёГ ГҐГ¬ Г±Г®ГµГ°Г Г­ГїГІГј ГґГ Г©Г«Г» ГІГЁГЇГ  .txt ГЁ .doc
 OpenDialog1.Filter := 'Secu3 Logfile|*.csv|';
 
-  // Установка расширения по умолчанию
+  // Г“Г±ГІГ Г­Г®ГўГЄГ  Г°Г Г±ГёГЁГ°ГҐГ­ГЁГї ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ
  OpenDialog1.DefaultExt := '*.csv';
 
-  // Выбор текстовых файлов как стартовый тип фильтра
+  // Г‚Г»ГЎГ®Г° ГІГҐГЄГ±ГІГ®ГўГ»Гµ ГґГ Г©Г«Г®Гў ГЄГ ГЄ Г±ГІГ Г°ГІГ®ГўГ»Г© ГІГЁГЇ ГґГЁГ«ГјГІГ°Г 
  OpenDialog1.FilterIndex := 1;
-//Обработчик события СОЗДАНИЯ ФОРМЫ
-//Записываем разметку stringGrid2
-//разметка строк
-stringGrid2.Cells[0,0]:='Об.\Расх.';
+//ГЋГЎГ°Г ГЎГ®ГІГ·ГЁГЄ Г±Г®ГЎГ»ГІГЁГї Г‘ГЋГ‡Г„ГЂГЌГ€Гџ Г”ГЋГђГЊГ›
+//Г‡Г ГЇГЁГ±Г»ГўГ ГҐГ¬ Г°Г Г§Г¬ГҐГІГЄГі stringGrid2
+//Г°Г Г§Г¬ГҐГІГЄГ  Г±ГІГ°Г®ГЄ
+stringGrid2.Cells[0,0]:='ГЋГЎ.\ГђГ Г±Гµ.';
 j:=1;
 for i:= 1 to 16 do begin
     k:=0;
       stringGrid2.Cells[i,k]:=inttostr(j);
       inc(j)
     end;
-//Загружаем в листинг список начальных значений
+//Г‡Г ГЈГ°ГіГ¦Г ГҐГ¬ Гў Г«ГЁГ±ГІГЁГ­ГЈ Г±ГЇГЁГ±Г®ГЄ Г­Г Г·Г Г«ГјГ­Г»Гµ Г§Г­Г Г·ГҐГ­ГЁГ©
 for i:= 1 to 17 do begin
     k:=1;
       for j:=1 to 17 do begin
@@ -858,7 +857,7 @@ end;
 
 procedure TForm1.Help1Click(Sender: TObject);
 begin
-Showmessage('Информация временно недоступна'+#13#10);
+Showmessage('Г€Г­ГґГ®Г°Г¬Г Г¶ГЁГї ГўГ°ГҐГ¬ГҐГ­Г­Г® Г­ГҐГ¤Г®Г±ГІГіГЇГ­Г '+#13#10);
 end;
 (******************************************************************************)
 procedure TForm1.N3DPlot1Click(Sender: TObject);
@@ -868,7 +867,7 @@ Form3.Button1Click(Sender);
 end;
 (******************************************************************************)
 
-procedure TForm1.N8Click(Sender: TObject);           //Завершение работы
+procedure TForm1.N8Click(Sender: TObject);           //Г‡Г ГўГҐГ°ГёГҐГ­ГЁГҐ Г°Г ГЎГ®ГІГ»
 begin
 Close;
 end;
@@ -879,16 +878,16 @@ end;
 
 (******************************************************************************)
 
-procedure TForm1.N10Click(Sender: TObject);   //Запуск пересчета значений
+procedure TForm1.N10Click(Sender: TObject);   //Г‡Г ГЇГіГ±ГЄ ГЇГҐГ°ГҐГ±Г·ГҐГІГ  Г§Г­Г Г·ГҐГ­ГЁГ©
 var buttonSelected:integer;
 begin
-if N10.caption<>'Стоп' then
-buttonSelected:= MessageDlg('Запустить Online редактирование?',mtInformation, [mbYes,mbCancel], 0);
+if N10.caption<>'Г‘ГІГ®ГЇ' then
+buttonSelected:= MessageDlg('Г‡Г ГЇГіГ±ГІГЁГІГј Online Г°ГҐГ¤Г ГЄГІГЁГ°Г®ГўГ Г­ГЁГҐ?',mtInformation, [mbYes,mbCancel], 0);
    if buttonSelected = mrYes    then begin
      Button3.Enabled:=true;
      N3DPlot1.Enabled:=true;
      N3DPlot2.Enabled:=true;
-     N10.caption:='Стоп';
+     N10.caption:='Г‘ГІГ®ГЇ';
      obrab:=false;
      if not starttune then starttune:=true;
    end
@@ -897,7 +896,7 @@ buttonSelected:= MessageDlg('Запустить Online редактирование?',mtInformation, [m
      form1.StringGrid2.Enabled:=true;
       starttune:=false;
       if timer1.Enabled then timer1.Enabled:=false;
-      N10.caption:='Запуск';
+      N10.caption:='Г‡Г ГЇГіГ±ГЄ';
        end;
 
 end;
@@ -905,16 +904,16 @@ end;
 procedure TForm1.N12Click(Sender: TObject);
 var f1:textfile; i,j,iTmp: Integer; st,fname:string;
 begin
-// Разрешаем сохранять файлы типа .txt и .doc
+// ГђГ Г§Г°ГҐГёГ ГҐГ¬ Г±Г®ГµГ°Г Г­ГїГІГј ГґГ Г©Г«Г» ГІГЁГЇГ  .txt ГЁ .doc
   OpenDialog3.Filter := 'VE Text|*.txt|';
 
-  // Установка расширения по умолчанию
+  // Г“Г±ГІГ Г­Г®ГўГЄГ  Г°Г Г±ГёГЁГ°ГҐГ­ГЁГї ГЇГ® ГіГ¬Г®Г«Г·Г Г­ГЁГѕ
  OpenDialog3.DefaultExt := '*.txt';
 
-  // Выбор текстовых файлов как стартовый тип фильтра
+  // Г‚Г»ГЎГ®Г° ГІГҐГЄГ±ГІГ®ГўГ»Гµ ГґГ Г©Г«Г®Гў ГЄГ ГЄ Г±ГІГ Г°ГІГ®ГўГ»Г© ГІГЁГЇ ГґГЁГ«ГјГІГ°Г 
 OpenDialog3.FilterIndex := 1;
 
-if Form1.OpenDialog3.Execute then begin//если выбран файл
+if Form1.OpenDialog3.Execute then begin//ГҐГ±Г«ГЁ ГўГ»ГЎГ°Г Г­ ГґГ Г©Г«
   fname:=OpenDialog3.FileName;
 AssignFile(F1, fname);
 Reset(F1);
@@ -933,9 +932,9 @@ with StringGrid2 do
        begin
          Readln(f1, st);
          if (strtofloat(st)<0) or (strtofloat(st)>2)then begin
-         MessageDlg('Ошибка, выход за границы диапазона',mtError, mbOKCancel, 0);
-         //Cells[i, j] := st;      //Оставлять старое значение
-         Cells[i, j] := '0.00';         //Менять на 0
+         MessageDlg('ГЋГёГЁГЎГЄГ , ГўГ»ГµГ®Г¤ Г§Г  ГЈГ°Г Г­ГЁГ¶Г» Г¤ГЁГ ГЇГ Г§Г®Г­Г ',mtError, mbOKCancel, 0);
+         //Cells[i, j] := st;      //ГЋГ±ГІГ ГўГ«ГїГІГј Г±ГІГ Г°Г®ГҐ Г§Г­Г Г·ГҐГ­ГЁГҐ
+         Cells[i, j] := '0.00';         //ГЊГҐГ­ГїГІГј Г­Г  0
          Rows[j].Objects[i] := TObject(5);
          end else  begin
            Cells[i, j] := st;
