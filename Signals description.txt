@@ -1,0 +1,133 @@
+40 7B 05 00 99 80 80 99 99 99 99 99 99 99 99 99 99 80 80 80 0D 
+40 7B 05 10 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 20 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 30 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 40 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 50 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 60 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 70 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 80 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 90 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 A0 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 B0 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 C0 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 D0 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 E0 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+40 7B 05 F0 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 99 0D 
+
+40 71 00 00 21 77 15 7B 03 2E 01 80 00 25 00 00 00 3B 78 04 1F 07 CE 00 40 48 00 FF FF 00 00 00 01 E0 01 80 7F FF 7F FF 7F FF 7F FF 7F FF 00 00 00 00 05 78 00 00 0D 
+	0 1  2  3  4  5  6  7  8  9  10 11 12 13 14 15 16 17 18 19 20 21 22
+40 71
+(00 00) Обороты RPM
+(06 03) Давление MAP
+(16 2D) напряжение
+(03 24) Температура охлаждающей жидкости
+(01 80) advance angle
+(00 2B) knock value
+(00 00) knock retard
+(00) Расход воздуха
+(33) флаг IE
+(C8) TPS (0 ... 100%, х2)
+(02 A6) ADD_I1 напряжения
+(01 2B) ADD_I2 напряжения
+(00 40)  ошибки CE
+(3E) Положение подсоса
+(00) Позиция газа dosator
+(FF FF) Скорость транспортного средства
+(00 00 00) Расстояние (3 байта)
+(FF 60) Температура воздуха
+(01 80) Угол опережения от начальной карте
+(7F FF) Угол опережения от простоя карте
+(7F FF) Угол опережения от работы карте
+(7F FF) Угол опережения с карты коррекции температуры охлаждающей жидкости
+(7F FF) Угол опережения с карты коррекции температуры воздуха
+(7F FF) Коррекции угол опережения от регулятора холостого хода RPM
+(00 00) Значение коррекции октановое
+(00 00) Коррекции лямбда
+(04 CF)  Ширина импульса инжектора
+(00 00) Открытие TPS
+0D 
+
+//-----------------------------------------------------------------------
+
+ //частота вращения двигателя
+ if (false == mp_pdp->Hex16ToBin(raw_packet, &m_SensorDat.frequen))
+  return false;
+
+ //Расход воздуха
+ if (false == mp_pdp->Hex8ToBin(raw_packet,&m_SensorDat.air_flow))
+  return false;
+
+  // Lambda correction value (signed value)
+ int lambda_corr = 0;
+ if (false == mp_pdp->Hex16ToBin(raw_packet,&lambda_corr,true))
+  return false;
+ m_SensorDat.lambda_corr = (((float)lambda_corr) / 512.0f) * 100.0f; //obtain value in %
+
+//-----------------------------------------------------------------------
+
+case SENSOR_DAT:   
+build_i16h(d->sens.frequen); // averaged RPM
+build_i16h(d->sens.map); // MAP pressure
+build_i16h(d->sens.voltage); // voltage
+build_i16h(d->sens.temperat); // coolant temperature
+build_i16h(d->corr.curr_angle); // advance angle
+build_i16h(d->sens.knock_k); // knock value
+build_i16h(d->corr.knock_retard); // knock retard
+build_i8h(d->airflow); // index of the map axis curve
+build_i8h((d->ie_valve « 0) | // IE flag
+(d->sens.carb « 1) | // carb. limit switch flag
+(d->sens.gas « 2) | // gas valve flag
+(d->fe_valve « 3) | // power valve flag
+(d->ce_state « 4) | // CE flag
+(d->cool_fan « 5) | // cooling fan flag
+(d->st_block « 6) | // starter blocking flag
+(d->acceleration « 7)); // acceleration enrichment flag
+build_i8h(d->sens.tps); // TPS (0...100%, x2)
+build_i16h(d->sens.add_i1); // ADD_I1 voltage
+build_i16h(d->sens.add_i2); // ADD_I2 voltage
+build_i16h(d->ecuerrors_for_transfer); // CE errors
+build_i8h(d->choke_pos); // choke position
+build_i8h(d->gasdose_pos); // gas dosator position
+build_i16h(d->sens.speed); // vehicle speed (2 bytes)
+build_i24h(d->sens.distance); // distance (3 bytes)
+build_i16h(d->sens.air_temp);
+build_i16h(d->corr.strt_aalt); // advance angle from start map
+build_i16h(d->corr.idle_aalt); // advance angle from idle map
+build_i16h(d->corr.work_aalt); // advance angle from work map
+build_i16h(d->corr.temp_aalt); // advance angle from coolant temperature correction map
+build_i16h(d->corr.airt_aalt); // advance angle from air temperature correction map
+build_i16h(d->corr.idlreg_aac); // advance angle correction from idling RPM regulator
+build_i16h(d->corr.octan_aac); // octane correction value
+build_i16h(d->corr.lambda); // lambda correction
+build_i16h(d->inj_pw); // injector pulse width
+build_i16h(d->sens.tpsdot); // TPS opening/closing speed
+
+/////////////////////////////////////////////////////
+
+40 7B 00 00 93 87 80 8C 32 31 32 36 20 20 20 20 20 20 20 20 0D
+7B - {
+00 - индекс набора таблиц
+00 - код таблицы в наборе
+93 87 80 8C 32 31 32 36 - название набора
+20 20 20 20 20 20 20 20 - данные
+
+Порядок таблиц в пакете 7B
+#define ETMT_NAME_STR 0 //!< name of tables's set id
+//ignition maps
+#define ETMT_STRT_MAP 1 //!< start map id
+#define ETMT_IDLE_MAP 2 //!< idle map id
+#define ETMT_WORK_MAP 3 //!< work map id
+#define ETMT_TEMP_MAP 4 //!< temp.corr. map id
+//fuel injection maps
+#define ETMT_VE_MAP 5 //!< VE
+#define ETMT_AFR_MAP 6 //!< AFR
+#define ETMT_CRNK_MAP 7 //!< Cranking PW
+#define ETMT_WRMP_MAP 8 //!< Warmup enrichment
+#define ETMT_DEAD_MAP 9 //!< Injector's dead time
+#define ETMT_IDLR_MAP 10 //!< IAC/PWM position on run
+#define ETMT_IDLC_MAP 11 //!< IAC_PWM position on cranking
+#define ETMT_AETPS_MAP 12 //!< AE TPS map
+#define ETMT_AERPM_MAP 13 //!< AE RPM map
+#define ETMT_AFTSTR_MAP 14 //!< afterstart enrichment
+
